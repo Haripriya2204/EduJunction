@@ -25,7 +25,6 @@ module.exports = {
       createdAt: new Date(),
       updatedAt: new Date()
     };
-    console.log(student);
 
     // Assign departmentId to the student
     student.departmentId = deptMap[student.department];
