@@ -25,6 +25,15 @@ import {
 } from "../../components/ui/table";
 import { selectElective, saveElectives } from '../../api';
 
+// Helper to get auth headers
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': token ? `Bearer ${token}` : ''
+  };
+};
+
 // Add romanNumerals mapping
 const romanNumerals: Record<number, string> = {
   1: 'I',
@@ -111,8 +120,8 @@ const Courses = () => {
     fetchCourses();
   }, []);
 
-  const fetchCourses = async () => {
-    try {
+    const fetchCourses = async () => {
+      try {
       const dbCourses = await studentService.getCourses();
       // Convert DBCourse to Course
       const convertedCourses: ElectiveCourse[] = dbCourses.map(c => ({
@@ -120,13 +129,13 @@ const Courses = () => {
         id: parseInt(c.id)
       }));
       setCourses(convertedCourses);
-    } catch (error) {
+      } catch (error) {
       console.error('Error fetching courses:', error);
       setError('Failed to fetch courses');
-    } finally {
-      setLoading(false);
-    }
-  };
+      } finally {
+        setLoading(false);
+      }
+    };
   
   const refreshCourses = () => {
     setRefreshKey(prevKey => prevKey + 1);
@@ -178,7 +187,6 @@ const Courses = () => {
   
   // When a radio is selected, update pendingElectives
   const handleRadioSelect = (groupId: number, course: any) => {
-    // Check if this group is already finalized
     if (finalizedElectives[groupId]) {
       toast.error('This elective group is already finalized and cannot be changed.');
       return;
@@ -191,17 +199,22 @@ const Courses = () => {
     if (!user || isFetchingElectives) return;
     try {
       const semester = courses[0]?.semester || '';
-      const response = await fetch(`/api/electives/status/${user.id}/${semester}`);
+      const response = await fetch(`/api/electives/status/${user.id}/${semester}`, { 
+        headers: getAuthHeaders() 
+      });
       const data = await response.json();
       if (data.success) {
         setElectivesFinalized(data.electivesFinalized);
-        setFinalizedElectives(data.selections.reduce((acc: any, curr: any) => {
-          acc[curr.peGroupId || curr.oeGroupId] = curr;
-          return acc;
-        }, {}));
+        if (Array.isArray(data.selections)) {
+          setFinalizedElectives(data.selections.reduce((acc: any, curr: any) => {
+            if (curr) {
+              acc[curr.peGroupId || curr.oeGroupId] = curr;
+            }
+            return acc;
+          }, {}));
+        }
         
-        // Update available electives if not finalized and not already fetching
-        if (!data.electivesFinalized && !isFetchingElectives) {
+        if (!data.electivesFinalized && !isFetchingElectives && data.availableElectives) {
           setAvailableElectives(data.availableElectives);
         }
       } else {
@@ -237,22 +250,17 @@ const Courses = () => {
   useEffect(() => {
     if (courses.length > 0) {
       fetchElectivesStatus();
+      fetchAvailableElectives();
     }
   }, [courses, refreshKey]);
 
   // Handler for View button
   const handleViewPE = (peGroupId: number | null) => {
-    if (typeof peGroupId !== 'number' || isNaN(peGroupId)) {
-      toast.error('Invalid elective group. Please contact admin.');
-      return;
-    }
     if (electivesFinalized) {
       toast.info('Your elective selections are finalized and cannot be changed.');
       return;
     }
     setActiveTab('electives');
-    setVisiblePEGroups([peGroupId]);
-    fetchAvailableElectives();
   };
 
   // Fetch available electives for the current user and semester
@@ -265,7 +273,9 @@ const Courses = () => {
       if (!semester) {
         throw new Error('No semester found');
       }
-      const response = await fetch(`/api/electives/available/${user.id}/${semester}`);
+      const response = await fetch(`/api/electives/available/${user.id}/${semester}`, { 
+        headers: getAuthHeaders() 
+      });
       const data = await response.json();
       if (data.success) {
         console.log('DEBUG: Setting available electives:', data.data);
@@ -360,6 +370,10 @@ const Courses = () => {
       setElectivesLoading(false);
     }
   };
+  
+  const professionalElectiveGroupsToShow = Object.entries(availableElectives || {})
+    .filter(([, courses]) => courses.length > 0 && courses[0].groupType === 'PE')
+    .sort(([a], [b]) => Number(a) - Number(b));
   
   // Empty state component
   const EmptyCoursesPlaceholder = ({ message }: { message: string }) => (
@@ -591,7 +605,9 @@ const Courses = () => {
                   onClick={async () => {
                     if (!user) return;
                     const semester = courses[0]?.semester || '6';
-                    const response = await fetch(`/api/electives/available/${user.id}/${semester}`);
+                    const response = await fetch(`/api/electives/available/${user.id}/${semester}`, { 
+                      headers: getAuthHeaders() 
+                    });
                     const data = await response.json();
                     console.log('DEBUG: Manual /api/electives/available response', data);
                   }}
@@ -630,12 +646,15 @@ const Courses = () => {
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-semibold text-lg">Available Electives</h3>
                     <Button
-                      onClick={fetchAvailableElectives}
+                      onClick={() => {
+                        setVisiblePEGroups(getVisiblePEGroupsFromMandatory());
+                        fetchAvailableElectives();
+                      }}
                       disabled={electivesLoading}
                       variant="outline"
                       size="sm"
                     >
-                      {electivesLoading ? 'Loading...' : 'Refresh Electives'}
+                      {electivesLoading ? 'Loading...' : 'Refresh & View All'}
                     </Button>
                   </div>
                   {electivesLoading ? (
@@ -643,110 +662,52 @@ const Courses = () => {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
                       <div className="text-gray-500">Loading available electives...</div>
                     </div>
-                  ) : Object.entries(availableElectives || {}).length === 0 ? (
-                    <div className="text-gray-500 text-center py-8">
-                      <BookOpen className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                      <div>No electives available for this semester.</div>
-                    </div>
-                  ) : (
+                  ) : professionalElectiveGroupsToShow.length > 0 ? (
                     <div className="space-y-8">
                       {/* Professional Electives Section */}
-                      {Object.entries(availableElectives || {})
-                        .filter(([groupId]) => !isOpenElectiveGroup(Number(groupId)))
-                        .sort(([a], [b]) => Number(a) - Number(b))
-                        .length > 0 && (
-                        <div>
-                          <h3 className="font-semibold mb-6 text-xl text-green-700">Professional Electives</h3>
-                          <div className="space-y-6">
-                            {Object.entries(availableElectives || {})
-                              .filter(([groupId]) => !isOpenElectiveGroup(Number(groupId)))
-                              .sort(([a], [b]) => Number(a) - Number(b))
-                              .map(([groupId, courses]) => (
-                              <div key={'pe-group-' + groupId} className="border border-green-200 rounded-lg p-4 bg-green-50">
-                                <h4 className="font-medium mb-4 text-lg text-green-800">
-                                  {Number(groupId) === 4 ? 'Professional Elective III LAB' : `Professional Elective ${romanNumerals[Number(groupId)]}`}
-                                </h4>
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Course Code</TableHead>
-                                      <TableHead>Course Title</TableHead>
-                                      <TableHead>Credits</TableHead>
-                                      <TableHead>Select</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {(courses as ElectiveCourse[]).map((courseData: ElectiveCourse) => (
-                                      <TableRow key={groupId + '-' + courseData.id}>
-                                        <TableCell className="font-medium">{courseData.code}</TableCell>
-                                        <TableCell>{courseData.name}</TableCell>
-                                        <TableCell>{courseData.credits}</TableCell>
-                                        <TableCell>
-                                          <input
-                                            type="radio"
-                                            name={`elective-group-${groupId}`}
-                                            checked={courseData.isSelected}
-                                            onChange={() => handleRadioSelect(Number(groupId), courseData)}
-                                          />
-                                        </TableCell>
+                      <div>
+                        <h3 className="font-semibold mb-6 text-xl text-green-700">Professional Electives</h3>
+                        <div className="space-y-6">
+                          {professionalElectiveGroupsToShow.map(([groupId, courses]) => {
+                              const selectedCourseForGroup = pendingElectives[Number(groupId)] || selectedElectives[Number(groupId)];
+                              return (
+                                <div key={'pe-group-' + groupId} className="border border-green-200 rounded-lg p-4 bg-green-50">
+                                  <h4 className="font-medium mb-4 text-lg text-green-800">
+                                    {`Professional Elective ${romanNumerals[Number(groupId)]}`}
+                                  </h4>
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Course Code</TableHead>
+                                        <TableHead>Course Title</TableHead>
+                                        <TableHead>Credits</TableHead>
+                                        <TableHead>Select</TableHead>
                                       </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            ))}
-                          </div>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {(courses as ElectiveCourse[]).map((courseData: ElectiveCourse) => (
+                                        <TableRow key={groupId + '-' + courseData.id}>
+                                          <TableCell className="font-medium">{courseData.code}</TableCell>
+                                          <TableCell>{courseData.name}</TableCell>
+                                          <TableCell>{courseData.credits}</TableCell>
+                                          <TableCell>
+                                            <input
+                                              type="radio"
+                                              name={`elective-group-${groupId}`}
+                                              checked={selectedCourseForGroup?.id === courseData.id}
+                                              onChange={() => handleRadioSelect(Number(groupId), courseData)}
+                                              className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                            />
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              );
+                            })}
                         </div>
-                      )}
-
-                      {/* Open Electives Section */}
-                      {Object.entries(availableElectives || {})
-                        .filter(([groupId]) => isOpenElectiveGroup(Number(groupId)))
-                        .sort(([a], [b]) => Number(a) - Number(b))
-                        .length > 0 && (
-                        <div>
-                          <h3 className="font-semibold mb-6 text-xl text-purple-700">Open Electives</h3>
-                          <div className="space-y-6">
-                            {Object.entries(availableElectives || {})
-                              .filter(([groupId]) => isOpenElectiveGroup(Number(groupId)))
-                              .sort(([a], [b]) => Number(a) - Number(b))
-                              .map(([groupId, courses]) => (
-                              <div key={'oe-group-' + groupId} className="border border-purple-200 rounded-lg p-4 bg-purple-50">
-                                <h4 className="font-medium mb-4 text-lg text-purple-800">
-                                  Open Elective Group {Number(groupId) - 100}
-                                </h4>
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead>Course Code</TableHead>
-                                      <TableHead>Course Title</TableHead>
-                                      <TableHead>Credits</TableHead>
-                                      <TableHead>Select</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {(courses as ElectiveCourse[]).map((courseData: ElectiveCourse) => (
-                                      <TableRow key={groupId + '-' + courseData.id}>
-                                        <TableCell className="font-medium">{courseData.code}</TableCell>
-                                        <TableCell>{courseData.name}</TableCell>
-                                        <TableCell>{courseData.credits}</TableCell>
-                                        <TableCell>
-                                          <input
-                                            type="radio"
-                                            name={`elective-group-${groupId}`}
-                                            checked={courseData.isSelected}
-                                            onChange={() => handleRadioSelect(Number(groupId), courseData)}
-                                          />
-                                        </TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      </div>
 
                       {/* Save Button */}
                       {Object.keys(pendingElectives).length > 0 && (
@@ -761,6 +722,21 @@ const Courses = () => {
                           </Button>
                         </div>
                       )}
+                    </div>
+                  ) : Object.keys(availableElectives || {}).length > 0 ? (
+                    <div className="text-gray-500 text-center py-8">
+                      <BookOpen className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                      <div>
+                        <p className="mb-2">Select a Professional Elective from the Mandatory Courses tab to see the available options.</p>
+                        <Button variant="outline" size="sm" onClick={() => setActiveTab('mandatory')}>
+                          Back to Mandatory Courses
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 text-center py-8">
+                      <BookOpen className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                      <div>No electives available for this semester.</div>
                     </div>
                   )}
                 </div>

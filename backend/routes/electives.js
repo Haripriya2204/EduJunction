@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
-const { StudentElective, Course, User } = require('../models');
+const { StudentElective, Course, User } = require("../src/models");
 const { Op } = require('sequelize');
 
 // Helper function to validate semester

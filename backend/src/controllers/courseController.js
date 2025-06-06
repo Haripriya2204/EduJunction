@@ -90,11 +90,11 @@ exports.getMandatoryCourses = async (req, res) => {
         let groupId = null;
         if (/Professional Elective - I/.test(c.name)) groupId = 1;
         if (/Professional Elective - II/.test(c.name)) groupId = 2;
-        if (/Professional Elective - III/.test(c.name)) groupId = 3;
-        if (/Professional Elective - IV/.test(c.name)) groupId = 4;
+        if (/Professional Elective - III(?!\s*LAB)/.test(c.name)) groupId = 3;
+        if (/Professional Elective - III\s*LAB/.test(c.name)) groupId = 4;
         if (/Professional Elective - V/.test(c.name)) groupId = 5;
         if (/Professional Elective - VI/.test(c.name)) groupId = 6;
-        if (/Professional Elective - III LAB/.test(c.name)) groupId = 7;
+        
         if (groupId && peElectiveMap[groupId]) {
           const elective = peElectiveMap[groupId];
           return {

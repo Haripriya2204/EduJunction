@@ -76,7 +76,12 @@ module.exports = {
       }
     ];
 
-    await queryInterface.bulkDelete('Courses', { isElective: false }, {});
+    // Delete only mandatory courses, not elective placeholders
+    await queryInterface.bulkDelete('Courses', { 
+      isElective: false,
+      category: 'Core'
+    }, {});
+    
     await queryInterface.bulkInsert('Courses', courses, {});
   },
 

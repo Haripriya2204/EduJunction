@@ -268,6 +268,17 @@ async function verifyImportedElectives() {
 async function addElectivePlaceholders() {
   console.log('\n=== ADDING ELECTIVE PLACEHOLDERS ===');
   
+  // First, remove any existing placeholders
+  await Course.destroy({
+    where: {
+      isElective: false,
+      [Op.or]: [
+        { category: 'PE' },
+        { category: 'OE' }
+      ]
+    }
+  });
+  
   const placeholders = [
     // Semester 5
     { semester: '5', code: 'PE501', name: 'Professional Elective - I', credits: 3, category: 'PE' },
@@ -295,7 +306,7 @@ async function addElectivePlaceholders() {
         credits: placeholder.credits,
         department: 'Computer Science and Engineering',
         semester: placeholder.semester,
-        isElective: false, // These are mandatory placeholders
+        isElective: false,
         category: placeholder.category,
         offeringDepartment: '',
         peGroupId: null,
@@ -319,6 +330,17 @@ const peIIILabCourses = [
 // Add a function to import PE-III LAB courses
 async function importPEIIILabCourses() {
   console.log('\n=== IMPORTING PE-III LAB COURSES ===');
+  
+  // First, remove any existing PE-III LAB courses
+  await Course.destroy({
+    where: {
+      semester: '6',
+      isElective: true,
+      category: 'PE',
+      peGroupId: 4
+    }
+  });
+  
   for (const course of peIIILabCourses) {
     try {
       await Course.create({
