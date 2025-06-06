@@ -61,12 +61,11 @@ router.get('/available/:userId/:semester', authenticateToken, async (req, res) =
 
     console.log('DEBUG: electiveCourses found:', electiveCourses.map(c => ({id: c.id, code: c.code, department: c.department, semester: c.semester, isElective: c.isElective, category: c.category, peGroupId: c.peGroupId, oeGroupId: c.oeGroupId})));
 
-    // Get student's current selections
+    // Get all of student's selections for the semester (pending or saved)
     const currentSelections = await StudentElective.findAll({
       where: { 
         userId, 
-        semester,
-        isSaved: true
+        semester
       },
       include: [{
         model: Course,
@@ -119,7 +118,9 @@ router.get('/available/:userId/:semester', authenticateToken, async (req, res) =
 // Select an elective
 router.post('/select', authenticateToken, async (req, res) => {
   try {
-    const { userId, courseId, semester, peGroupId, oeGroupId } = req.body;
+    const { userId, courseId, semester } = req.body;
+    const peGroupId = req.body.peGroupId || null;
+    const oeGroupId = req.body.oeGroupId || null;
 
     // Validate input
     if (!userId || !courseId || !semester || !isValidElectiveGroup(peGroupId, oeGroupId)) {
@@ -255,67 +256,8 @@ router.post('/save/:userId/:semester', authenticateToken, async (req, res) => {
       });
     }
 
-    // Get all unsaved selections for this student and semester
-    const selections = await StudentElective.findAll({
-      where: {
-        userId,
-        semester,
-        isSaved: false
-      },
-      include: [{
-        model: Course,
-        as: 'course',
-        attributes: ['id', 'code', 'name', 'credits', 'peGroupId', 'oeGroupId']
-      }]
-    });
-
-    if (selections.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No pending selections to save'
-      });
-    }
-
-    // Get required elective groups for the student's department and semester
-    const requiredGroups = await Course.findAll({
-      where: {
-        department: user.department,
-        semester,
-        isElective: true,
-        [Op.or]: [
-          { peGroupId: { [Op.ne]: null } },
-          { oeGroupId: { [Op.ne]: null } }
-        ]
-      },
-      attributes: ['peGroupId', 'oeGroupId'],
-      group: ['peGroupId', 'oeGroupId']
-    });
-
-    // Check if all required groups have selections
-    const selectedGroups = new Set();
-    selections.forEach(selection => {
-      if (selection.peGroupId) selectedGroups.add(selection.peGroupId);
-      if (selection.oeGroupId) selectedGroups.add(selection.oeGroupId);
-    });
-
-    const requiredGroupIds = new Set();
-    requiredGroups.forEach(group => {
-      if (group.peGroupId) requiredGroupIds.add(group.peGroupId);
-      if (group.oeGroupId) requiredGroupIds.add(group.oeGroupId);
-    });
-
-    const missingGroups = Array.from(requiredGroupIds)
-      .filter(id => !selectedGroups.has(id));
-
-    if (missingGroups.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Please select electives for all required groups: ${missingGroups.join(', ')}`
-      });
-    }
-
-    // Mark all selections as saved
-    await StudentElective.update(
+    // Mark all pending selections for this semester as saved
+    const [updateCount] = await StudentElective.update(
       { isSaved: true },
       {
         where: {
@@ -326,9 +268,16 @@ router.post('/save/:userId/:semester', authenticateToken, async (req, res) => {
       }
     );
 
+    if (updateCount === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No pending elective selections to finalize.'
+      });
+    }
+
     res.json({ 
       success: true, 
-      message: 'Elective selections saved successfully. Your selections are now finalized.' 
+      message: 'Elective selections finalized successfully.' 
     });
   } catch (error) {
     console.error('Error saving elective selections:', error);

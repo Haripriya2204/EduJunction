@@ -50,65 +50,62 @@ exports.getMandatoryCourses = async (req, res) => {
     });
     if (!receipt || !receipt.semester) {
       console.log('DEBUG: No approved fee receipt or semester for userId', userId, 'receipt:', receipt);
-      return res.json([]);
+      return res.json({ courses: [], selectedElectivesMap: {} });
     }
     // Find the user's department
     const user = await db.User.findByPk(userId);
     if (!user) {
       console.log('DEBUG: No user found for userId', userId);
-      return res.json([]);
+      return res.json({ courses: [], selectedElectivesMap: {} });
     }
     console.log('DEBUG: userId', userId, 'user.department', user.department, 'receipt.semester', receipt.semester);
+
     // Fetch mandatory courses for the department and semester (non-elective)
-    let courses = await db.Course.findAll({
+    const courses = await db.Course.findAll({
       where: {
         department: user.department,
         semester: receipt.semester,
-        isElective: false
+        isElective: false,
       },
-      attributes: ['id', 'code', 'name', 'credits', 'department', 'semester']
+      attributes: ['id', 'code', 'name', 'credits', 'department', 'semester', 'category'],
+      order: [['code', 'ASC']],
     });
-    // Fetch saved electives for this user/semester
-    const savedElectives = await db.StudentElective.findAll({
+
+    // Fetch all selected electives for this user/semester (pending and saved)
+    const selectedElectives = await db.StudentElective.findAll({
       where: {
         userId,
         semester: receipt.semester,
-        isSaved: true
       },
-      include: [{ model: db.Course, as: 'course' }]
+      include: [{ model: db.Course, as: 'course' }],
     });
-    console.log('DEBUG: savedElectives', savedElectives.map(sel => ({ peGroupId: sel.peGroupId, code: sel.course?.code, name: sel.course?.name })));
-    // Map peGroupId to elective
-    const peElectiveMap = {};
-    savedElectives.forEach(sel => {
-      if (sel.peGroupId) peElectiveMap[sel.peGroupId] = sel.course;
-    });
-    // For each course, if it's a PE placeholder and a saved elective exists, replace code and name only
-    const mergedCourses = courses.map(c => {
-      if (/^Professional Elective/.test(c.name)) {
-        // Determine groupId
-        let groupId = null;
-        if (/Professional Elective - I/.test(c.name)) groupId = 1;
-        if (/Professional Elective - II/.test(c.name)) groupId = 2;
-        if (/Professional Elective - III(?!\s*LAB)/.test(c.name)) groupId = 3;
-        if (/Professional Elective - III\s*LAB/.test(c.name)) groupId = 4;
-        if (/Professional Elective - V/.test(c.name)) groupId = 5;
-        if (/Professional Elective - VI/.test(c.name)) groupId = 6;
-        
-        if (groupId && peElectiveMap[groupId]) {
-          const elective = peElectiveMap[groupId];
-          return {
-            ...c,
-            code: elective.code,
-            name: elective.name,
-            // credits remains as c.credits
-          };
-        }
+
+    console.log(
+      'DEBUG: selectedElectives',
+      selectedElectives.map(sel => ({
+        peGroupId: sel.peGroupId,
+        oeGroupId: sel.oeGroupId,
+        code: sel.course?.code,
+        name: sel.course?.name,
+      }))
+    );
+
+    // Create a map of group IDs to the selected course details
+    const selectedElectivesMap = {};
+    selectedElectives.forEach(sel => {
+      const groupKey = sel.peGroupId ? `pe-${sel.peGroupId}` : `oe-${sel.oeGroupId}`;
+      if (groupKey) {
+        selectedElectivesMap[groupKey] = sel.course.toJSON();
       }
-      return c;
     });
-    console.log('DEBUG: FINAL mergedCourses', mergedCourses);
-    res.json(mergedCourses);
+
+    console.log('DEBUG: selectedElectivesMap', selectedElectivesMap);
+
+    // Send the original mandatory courses and the map of selections
+    res.json({
+      courses: courses.map(c => c.toJSON()),
+      selectedElectivesMap: selectedElectivesMap,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch mandatory courses' });

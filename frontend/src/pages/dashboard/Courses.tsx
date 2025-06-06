@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "../../components/ui/button";
 import { studentService } from "../../services/api";
 import type { Course as ApiCourse } from "../../services/api";
@@ -53,55 +53,29 @@ interface ElectiveCourse extends Omit<ApiCourse, 'id'> {
   oeGroupId?: number | null;
   createdAt: Date;
   updatedAt: Date;
+  isPlaceholder?: boolean;
 }
 
 const Courses = () => {
   const [courses, setCourses] = useState<ElectiveCourse[]>([]);
+  const [selectedElectivesMap, setSelectedElectivesMap] = useState<Record<string, ElectiveCourse>>({});
   const [feeStatus, setFeeStatus] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("mandatory");
   const [refreshKey, setRefreshKey] = useState(0);
   const [availableElectives, setAvailableElectives] = useState<Record<number, ElectiveCourse[]> | null>(null);
   const [electivesLoading, setElectivesLoading] = useState(false);
-  const [visiblePEGroups, setVisiblePEGroups] = useState<number[]>([]);
   const [selectedElectives, setSelectedElectives] = useState<Record<number, ElectiveCourse>>({});
-  const [pendingElectives, setPendingElectives] = useState<Record<number, ElectiveCourse>>({});
   const [electivesFinalized, setElectivesFinalized] = useState(false);
-  const [finalizedElectives, setFinalizedElectives] = useState<Record<number, ElectiveCourse>>({});
   const user = studentService.getCurrentUser();
   const [error, setError] = useState<string | null>(null);
-  const [selectedPEGroup, setSelectedPEGroup] = useState<number | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [isFetchingElectives, setIsFetchingElectives] = useState(false);
   
-  // Debug log for availableElectives
+  // Fetch courses on component mount or refresh
   useEffect(() => {
-    console.log('DEBUG: availableElectives (state)', availableElectives);
-  }, [availableElectives]);
+    fetchCourses();
+  }, [refreshKey]);
 
-  // Debug log for finalizedElectives
-  useEffect(() => {
-    console.log('DEBUG: finalizedElectives (state)', finalizedElectives);
-  }, [finalizedElectives]);
-
-  // Debug log for electivesFinalized
-  useEffect(() => {
-    console.log('DEBUG: electivesFinalized (state)', electivesFinalized);
-  }, [electivesFinalized]);
-
-  // Debug log for selectedElectives
-  useEffect(() => {
-    console.log('DEBUG: selectedElectives (state)', selectedElectives);
-  }, [selectedElectives]);
-  
-  // Place debug log here, before any return
-  useEffect(() => {
-    console.log('DEBUG: availableElectives', availableElectives, 'visiblePEGroups', visiblePEGroups);
-  }, [availableElectives, visiblePEGroups]);
-  
-  // Force an immediate check on first render
   useEffect(() => {
     const checkFeeStatus = async () => {
       try {
@@ -111,142 +85,128 @@ const Courses = () => {
         console.error("Error checking fee status:", error);
       }
     };
-    
     checkFeeStatus();
-  }, []);
-  
-  // Fetch courses on component mount
-  useEffect(() => {
-    fetchCourses();
-  }, []);
+  }, [refreshKey]);
 
-    const fetchCourses = async () => {
-      try {
-      const dbCourses = await studentService.getCourses();
-      // Convert DBCourse to Course
-      const convertedCourses: ElectiveCourse[] = dbCourses.map(c => ({
-        ...c,
-        id: parseInt(c.id)
-      }));
-      setCourses(convertedCourses);
-      } catch (error) {
+  const fetchCourses = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await studentService.getCourses();
+      setCourses(data.courses || []);
+      setSelectedElectivesMap(data.selectedElectivesMap || {});
+    } catch (error: any) {
       console.error('Error fetching courses:', error);
-      setError('Failed to fetch courses');
-      } finally {
-        setLoading(false);
-      }
-    };
+      setError(error.message || 'Failed to fetch courses');
+    } finally {
+      setLoading(false);
+    }
+  };
   
-  const refreshCourses = () => {
+  const refreshAllData = () => {
     setRefreshKey(prevKey => prevKey + 1);
   };
   
-  // Helper to extract group ID from course name (PE or OE)
-  const getPEGroupIdFromName = (name: string) => {
-    const trimmed = name.trim();
-    
-    // Check for PE-III LAB first (special case)
-    if (/^Professional Elective\\s*-?\\s*III\\s*LAB$/i.test(trimmed)) {
-      return 4; // This matches our backend peGroupId for PE-III LAB
-    }
-    
-    // Professional Elective (with or without dash)
-    const peMatch = trimmed.match(/^Professional Elective\\s*-?\\s*(I{1,3}|IV|V|VI)$/i);
-    if (peMatch) {
-      const roman = peMatch[1];
-      const romanToNum: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6 };
-      return romanToNum[roman.toUpperCase()] || null;
-    }
-    
-    // Open Elective (with or without dash) - use different range to avoid conflicts
-    const oeMatch = trimmed.match(/^Open Elective\s*-?\s*(I{1,3}|IV|V|VI)$/i);
-    if (oeMatch) {
-      const roman = oeMatch[1];
-      const romanToNum: Record<string, number> = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6 };
-      return 100 + (romanToNum[roman.toUpperCase()] || 0); // OE-I: 101, OE-II: 102, etc.
-    }
+  const getPEGroupIdFromName = (name: string): number | null => {
+    const trimmed = name.trim().toUpperCase();
+    if (trimmed.includes('PROFESSIONAL ELECTIVE - I') && !trimmed.includes('II')) return 1;
+    if (trimmed.includes('PROFESSIONAL ELECTIVE - II')) return 2;
+    if (trimmed.includes('PROFESSIONAL ELECTIVE - III') && !trimmed.includes('LAB')) return 3;
+    if (trimmed.includes('PROFESSIONAL ELECTIVE - III LAB')) return 4;
+    if (trimmed.includes('PROFESSIONAL ELECTIVE - V')) return 5;
+    if (trimmed.includes('PROFESSIONAL ELECTIVE - VI')) return 6;
     return null;
   };
-
-  // Helper to determine if a group ID is for Open Electives
-  const isOpenElectiveGroup = (groupId: number) => {
-    return groupId >= 100;
-  };
   
-  // Update selectedElectives when availableElectives changes
+  const handleRadioSelect = async (groupId: number, course: ElectiveCourse) => {
+    if (electivesFinalized) {
+      toast.error('Your selections are finalized and cannot be changed.');
+      return;
+    }
+
+    if (!user) {
+      toast.error('User not found. Please log in again.');
+      return;
+    }
+
+    const semester = courses[0]?.semester;
+    if (!semester) {
+      toast.error('Could not determine semester.');
+      return;
+    }
+
+    const originalSelection = selectedElectives[groupId];
+    setSelectedElectives(prev => ({ ...prev, [groupId]: course }));
+
+    try {
+      await selectElective({
+        userId: Number(user.id),
+        courseId: Number(course.id),
+        semester: String(semester),
+        peGroupId: groupId,
+      });
+      toast.success(`${course.name} selected successfully!`);
+      refreshAllData(); // Full refresh to get latest state
+    } catch (error: any) {
+      toast.error(`Error selecting ${course.name}: ${error.message}`);
+      // Revert optimistic update on error
+      if (originalSelection) {
+        setSelectedElectives(prev => ({ ...prev, [groupId]: originalSelection }));
+      } else {
+        setSelectedElectives(prev => {
+          const newSelections = { ...prev };
+          delete newSelections[groupId];
+          return newSelections;
+        });
+      }
+      if (error.message.includes('finalized')) {
+        setElectivesFinalized(true);
+      }
+    }
+  };
+
+  // Update radio button state when available electives are loaded
   useEffect(() => {
     if (!availableElectives) return;
     
     const newSelected: Record<number, ElectiveCourse> = {};
     Object.entries(availableElectives).forEach(([groupId, courses]) => {
-      const selected = (courses as ElectiveCourse[]).find(c => c.isSelected);
-      if (selected) newSelected[Number(groupId)] = selected;
+      const selectedCourse = (courses as ElectiveCourse[]).find(c => c.isSelected);
+      if (selectedCourse) {
+        newSelected[Number(groupId)] = selectedCourse;
+      }
     });
-    setSelectedElectives(newSelected);
+    
+    setSelectedElectives(prev => ({ ...prev, ...newSelected }));
   }, [availableElectives]);
-  
-  // When a radio is selected, update pendingElectives
-  const handleRadioSelect = (groupId: number, course: any) => {
-    if (finalizedElectives[groupId]) {
-      toast.error('This elective group is already finalized and cannot be changed.');
-      return;
-    }
-    setPendingElectives(prev => ({ ...prev, [groupId]: course }));
-  };
 
-  // Fetch electives finalized status
   const fetchElectivesStatus = async () => {
     if (!user || isFetchingElectives) return;
     try {
       const semester = courses[0]?.semester || '';
-      const response = await fetch(`/api/electives/status/${user.id}/${semester}`, { 
-        headers: getAuthHeaders() 
-      });
+      if (!semester) return;
+      const response = await fetch(`/api/electives/status/${user.id}/${semester}`, { headers: getAuthHeaders() });
       const data = await response.json();
       if (data.success) {
         setElectivesFinalized(data.electivesFinalized);
-        if (Array.isArray(data.selections)) {
-          setFinalizedElectives(data.selections.reduce((acc: any, curr: any) => {
-            if (curr) {
-              acc[curr.peGroupId || curr.oeGroupId] = curr;
-            }
-            return acc;
-          }, {}));
-        }
-        
-        if (!data.electivesFinalized && !isFetchingElectives && data.availableElectives) {
-          setAvailableElectives(data.availableElectives);
-        }
-      } else {
-        console.warn('Failed to fetch elective status:', data.message);
       }
     } catch (error) {
       console.error('Error fetching elective status:', error);
     }
   };
 
-  // Debug log for finalizedElectives
-  useEffect(() => {
-    if (electivesFinalized) {
-      console.log('DEBUG: finalizedElectives', finalizedElectives);
-    }
-  }, [finalizedElectives, electivesFinalized]);
-
-  // getMandatoryCourses - separate mandatory courses and electives
-  const getMandatoryCourses = () => {
-    return courses.filter(course => !isElectivePlaceholder(course.name));
+  const isElectivePlaceholder = (course: ElectiveCourse) => {
+    return course.category === 'PE' || course.category === 'OE';
   };
+  
+  const mandatoryCourses = useMemo(() => {
+    return courses.filter(course => !isElectivePlaceholder(course));
+  }, [courses]);
 
-  // getElectivePlaceholders - get elective placeholders to show in mandatory tab
-  const getElectivePlaceholders = () => {
-    const currentSemester = courses[0]?.semester;
-    return courses.filter(course => 
-      isElectivePlaceholder(course.name) && 
-      course.semester === currentSemester
-    );
-  };
+  const electivePlaceholders = useMemo(() => {
+    return courses.filter(isElectivePlaceholder);
+  }, [courses]);
 
-  // Fetch status on load and after refresh
   useEffect(() => {
     if (courses.length > 0) {
       fetchElectivesStatus();
@@ -254,16 +214,6 @@ const Courses = () => {
     }
   }, [courses, refreshKey]);
 
-  // Handler for View button
-  const handleViewPE = (peGroupId: number | null) => {
-    if (electivesFinalized) {
-      toast.info('Your elective selections are finalized and cannot be changed.');
-      return;
-    }
-    setActiveTab('electives');
-  };
-
-  // Fetch available electives for the current user and semester
   const fetchAvailableElectives = async () => {
     if (!user || isFetchingElectives) return;
     setIsFetchingElectives(true);
@@ -271,21 +221,17 @@ const Courses = () => {
     try {
       const semester = courses[0]?.semester || '';
       if (!semester) {
-        throw new Error('No semester found');
+        setError('Could not determine current semester.');
+        return;
       }
-      const response = await fetch(`/api/electives/available/${user.id}/${semester}`, { 
-        headers: getAuthHeaders() 
-      });
+      const response = await fetch(`/api/electives/available/${user.id}/${semester}`, { headers: getAuthHeaders() });
       const data = await response.json();
       if (data.success) {
-        console.log('DEBUG: Setting available electives:', data.data);
         setAvailableElectives(data.data);
       } else {
-        console.error('Failed to fetch available electives:', data.message);
         setError(data.message || 'Failed to fetch available electives');
       }
     } catch (error) {
-      console.error('Error fetching available electives:', error);
       setError('Failed to fetch available electives. Please try again.');
     } finally {
       setElectivesLoading(false);
@@ -293,89 +239,31 @@ const Courses = () => {
     }
   };
 
-  // Helper to get visible PE group IDs from the mandatory list
-  const getVisiblePEGroupsFromMandatory = () => {
-    const groups: number[] = [];
-    courses.filter(course => !course.isElective).forEach(course => {
-      const peGroupId = getPEGroupIdFromName(course.name);
-      if (peGroupId && !groups.includes(peGroupId)) {
-        groups.push(peGroupId);
-      }
-    });
-    return groups;
-  };
-
-  // In useEffect, set visible PE groups after courses are loaded
-  useEffect(() => {
-    if (courses.length > 0) {
-      setVisiblePEGroups(getVisiblePEGroupsFromMandatory());
-    }
-  }, [courses]);
-
-  // Handle save electives
-  const handleSaveElectives = async () => {
+  const handleFinalizeElectives = async () => {
     if (!user) return;
     setElectivesLoading(true);
     try {
-      // Get semester from the first course
       const semester = courses[0]?.semester;
       if (!semester) {
         toast.error('Could not determine semester. Please try again.');
         return;
       }
-
-      // Check if all visible groups have selections
-      const missingGroups = visiblePEGroups.filter(
-        groupId => !pendingElectives[groupId] && !selectedElectives[groupId]
-      );
-
-      if (missingGroups.length > 0) {
-        toast.error(`Please select an elective for group(s): ${missingGroups.join(', ')}`);
-        return;
-      }
-
-      // Save selections for each group
-      for (const groupId of visiblePEGroups) {
-        const course = pendingElectives[groupId] || selectedElectives[groupId];
-        if (course) {
-          try {
-          await selectElective({
-            userId: Number(user.id),
-            courseId: Number(course.id),
-            semester: String(semester),
-            peGroupId: Number(groupId)
-          });
-          } catch (error: any) {
-            toast.error(error.message || `Failed to select elective for group ${groupId}`);
-            return;
-          }
-        }
-      }
-
-      // Save all selections
-      try {
       await saveElectives(Number(user.id), String(semester));
-        toast.success('Elective selections saved successfully');
-      setPendingElectives({});
+      toast.success('All elective selections have been finalized!');
+      setElectivesFinalized(true);
       setActiveTab('mandatory');
-      // Force refresh of userCourses and electives status
-      setRefreshKey(prevKey => prevKey + 1);
-      await fetchElectivesStatus();
-      } catch (error: any) {
-        toast.error(error.message || 'Failed to save elective selections');
-      }
+      refreshAllData();
     } catch (error: any) {
-      toast.error(error.message || 'An error occurred while saving selections');
+      toast.error(error.message || 'Failed to finalize selections.');
     } finally {
       setElectivesLoading(false);
     }
   };
   
   const professionalElectiveGroupsToShow = Object.entries(availableElectives || {})
-    .filter(([, courses]) => courses.length > 0 && courses[0].groupType === 'PE')
+    .filter(([, courses]) => courses.length > 0)
     .sort(([a], [b]) => Number(a) - Number(b));
   
-  // Empty state component
   const EmptyCoursesPlaceholder = ({ message }: { message: string }) => (
     <div className="text-center py-12">
       <BookOpen className="h-12 w-12 mx-auto text-gray-300 mb-4" />
@@ -384,14 +272,11 @@ const Courses = () => {
     </div>
   );
   
-  // Loading state
   if (loading) {
     return (
       <div className="space-y-6 animate-fade-in">
         <h1 className="text-2xl font-bold text-gray-800 mb-4">My Courses</h1>
-        
         <Skeleton className="h-20 w-full mb-6" />
-        
         <Card>
           <CardHeader>
             <Skeleton className="h-8 w-48 mb-2" />
@@ -409,20 +294,14 @@ const Courses = () => {
     );
   }
   
-  // Add this helper function near getPEGroupIdFromName
-  const isElectivePlaceholder = (name: string) => {
-    return /^Professional Elective/.test(name) || /^Open Elective/.test(name);
-  };
-  
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-800">My Courses</h1>
-        
         <div className="flex flex-wrap items-center gap-2">
           <Button 
             variant="outline" 
-            onClick={refreshCourses}
+            onClick={refreshAllData}
             className="transition-all duration-200"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
@@ -431,7 +310,6 @@ const Courses = () => {
         </div>
       </div>
       
-      {/* Fee verification status card */}
       {feeStatus === "approved" ? (
         <Card className="bg-green-50 border-green-200 mb-6 transition-all duration-300">
           <CardContent className="pt-6">
@@ -501,10 +379,9 @@ const Courses = () => {
                     Your course access will be available once your fee payment is verified.
                   </p>
                 </div>
-              ) : (getMandatoryCourses().length > 0 || getElectivePlaceholders().length > 0) ? (
+              ) : (mandatoryCourses.length > 0 || electivePlaceholders.length > 0) ? (
                 <div className="space-y-6">
-                  {/* Mandatory Courses Section */}
-                  {getMandatoryCourses().length > 0 && (
+                  {mandatoryCourses.length > 0 && (
                     <div>
                       <h3 className="font-semibold mb-4 text-lg">Mandatory Courses</h3>
                       <Table>
@@ -517,7 +394,7 @@ const Courses = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {getMandatoryCourses().map((course) => (
+                          {mandatoryCourses.map((course) => (
                             <TableRow key={course.id} className="transition-colors hover:bg-gray-50">
                               <TableCell className="font-medium">{course.code}</TableCell>
                               <TableCell>{course.name}</TableCell>
@@ -534,8 +411,7 @@ const Courses = () => {
                     </div>
                   )}
 
-                  {/* Electives Section */}
-                  {getElectivePlaceholders().length > 0 && (
+                  {electivePlaceholders.length > 0 && (
                     <div>
                       <h3 className="font-semibold mb-4 text-lg">Electives</h3>
                       <Table>
@@ -549,20 +425,18 @@ const Courses = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {getElectivePlaceholders().map((course) => {
-                            const groupId = getPEGroupIdFromName(course.name);
-                            const selectedElective = selectedElectives[groupId as number];
-                            const isOE = course.name.includes('Open Elective');
+                          {electivePlaceholders.map((placeholder) => {
+                            const isOE = placeholder.category === 'OE';
+                            const groupId = getPEGroupIdFromName(placeholder.name);
+                            const groupKey = isOE ? `oe-` : `pe-${groupId}`; // Simplified OE key
+                            const selectedCourse = selectedElectivesMap[groupKey];
+                            const displayCourse = selectedCourse || placeholder;
                             
                             return (
-                              <TableRow key={course.id} className="transition-colors hover:bg-gray-50">
-                                <TableCell className="font-medium">
-                                  {selectedElective ? selectedElective.code : course.code}
-                                </TableCell>
-                                <TableCell>
-                                  {selectedElective ? selectedElective.name : course.name}
-                                </TableCell>
-                                <TableCell className="text-center">{course.credits}</TableCell>
+                              <TableRow key={placeholder.id} className="transition-colors hover:bg-gray-50">
+                                <TableCell className="font-medium">{displayCourse.code}</TableCell>
+                                <TableCell>{displayCourse.name}</TableCell>
+                                <TableCell className="text-center">{displayCourse.credits}</TableCell>
                                 <TableCell>
                                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                     isOE ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
@@ -575,9 +449,9 @@ const Courses = () => {
                                     <Button 
                                       size="sm" 
                                       variant="outline" 
-                                      onClick={() => handleViewPE(groupId as number)}
+                                      onClick={() => setActiveTab('electives')}
                                     >
-                                      {selectedElective ? 'Change' : 'Select'}
+                                      {selectedCourse ? 'Change' : 'Select'}
                                     </Button>
                                   ) : (
                                     <span className="text-sm text-gray-500">Finalized</span>
@@ -594,32 +468,12 @@ const Courses = () => {
               ) : (
                 <EmptyCoursesPlaceholder message="You don't have any mandatory courses assigned yet." />
               )}
-              {activeTab === 'mandatory' && Object.keys(pendingElectives).length > 0 && !electivesFinalized && (
-                <Button type="button" onClick={handleSaveElectives} className="mt-4">Save Selections</Button>
-              )}
             </TabsContent>
 
             <TabsContent value="electives" className="transition-opacity duration-300">
-              <div className="mb-4 flex gap-2">
-                <Button
-                  onClick={async () => {
-                    if (!user) return;
-                    const semester = courses[0]?.semester || '6';
-                    const response = await fetch(`/api/electives/available/${user.id}/${semester}`, { 
-                      headers: getAuthHeaders() 
-                    });
-                    const data = await response.json();
-                    console.log('DEBUG: Manual /api/electives/available response', data);
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  Debug: Fetch Available Electives
-                </Button>
-              </div>
               {electivesFinalized ? (
                 <div className="mb-8">
-                  <h3 className="font-semibold mb-4 text-lg">Your Selected Electives</h3>
+                  <h3 className="font-semibold mb-4 text-lg">Your Finalized Electives</h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -630,12 +484,12 @@ const Courses = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {Object.values(finalizedElectives).map((course: ElectiveCourse) => (
+                      {Object.values(selectedElectivesMap).map((course: ElectiveCourse) => (
                         <TableRow key={course.id}>
                           <TableCell>{course.code}</TableCell>
                           <TableCell>{course.name}</TableCell>
                           <TableCell>{course.credits}</TableCell>
-                          <TableCell>{course.category || (course.peGroupId ? 'PE' : 'OE')}</TableCell>
+                          <TableCell>{course.category}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -646,15 +500,12 @@ const Courses = () => {
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="font-semibold text-lg">Available Electives</h3>
                     <Button
-                      onClick={() => {
-                        setVisiblePEGroups(getVisiblePEGroupsFromMandatory());
-                        fetchAvailableElectives();
-                      }}
+                      onClick={fetchAvailableElectives}
                       disabled={electivesLoading}
                       variant="outline"
                       size="sm"
                     >
-                      {electivesLoading ? 'Loading...' : 'Refresh & View All'}
+                      {electivesLoading ? 'Loading...' : 'Refresh'}
                     </Button>
                   </div>
                   {electivesLoading ? (
@@ -664,12 +515,10 @@ const Courses = () => {
                     </div>
                   ) : professionalElectiveGroupsToShow.length > 0 ? (
                     <div className="space-y-8">
-                      {/* Professional Electives Section */}
                       <div>
-                        <h3 className="font-semibold mb-6 text-xl text-green-700">Professional Electives</h3>
                         <div className="space-y-6">
                           {professionalElectiveGroupsToShow.map(([groupId, courses]) => {
-                              const selectedCourseForGroup = pendingElectives[Number(groupId)] || selectedElectives[Number(groupId)];
+                              const selectedCourseForGroup = selectedElectives[Number(groupId)];
                               return (
                                 <div key={'pe-group-' + groupId} className="border border-green-200 rounded-lg p-4 bg-green-50">
                                   <h4 className="font-medium mb-4 text-lg text-green-800">
@@ -697,6 +546,7 @@ const Courses = () => {
                                               checked={selectedCourseForGroup?.id === courseData.id}
                                               onChange={() => handleRadioSelect(Number(groupId), courseData)}
                                               className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                              disabled={electivesFinalized}
                                             />
                                           </TableCell>
                                         </TableRow>
@@ -709,34 +559,21 @@ const Courses = () => {
                         </div>
                       </div>
 
-                      {/* Save Button */}
-                      {Object.keys(pendingElectives).length > 0 && (
-                        <div className="mt-8 flex justify-end">
-                          <Button 
-                            onClick={handleSaveElectives}
-                            disabled={electivesLoading}
-                            className="px-8 py-2"
-                            size="lg"
-                          >
-                            {electivesLoading ? 'Saving...' : 'Save Selections'}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  ) : Object.keys(availableElectives || {}).length > 0 ? (
-                    <div className="text-gray-500 text-center py-8">
-                      <BookOpen className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                      <div>
-                        <p className="mb-2">Select a Professional Elective from the Mandatory Courses tab to see the available options.</p>
-                        <Button variant="outline" size="sm" onClick={() => setActiveTab('mandatory')}>
-                          Back to Mandatory Courses
+                      <div className="mt-8 flex justify-end">
+                        <Button 
+                          onClick={handleFinalizeElectives}
+                          disabled={electivesLoading || electivesFinalized}
+                          className="px-8 py-2"
+                          size="lg"
+                        >
+                          {electivesLoading ? 'Finalizing...' : 'Finalize All Selections'}
                         </Button>
                       </div>
                     </div>
                   ) : (
                     <div className="text-gray-500 text-center py-8">
                       <BookOpen className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                      <div>No electives available for this semester.</div>
+                      <div>No electives currently available for this semester.</div>
                     </div>
                   )}
                 </div>

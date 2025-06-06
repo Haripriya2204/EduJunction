@@ -95,18 +95,18 @@ export const studentService = {
     return user;
   },
   
-  getCourses: async (): Promise<Course[]> => {
+  getCourses: async (): Promise<{ courses: Course[]; selectedElectivesMap: Record<string, Course> }> => {
     const user = authService.getCurrentUser();
     if (!user) {
       throw new Error('User not authenticated');
     }
-    // Fetch only mandatory courses for the student using userId
     const response = await fetch(`/api/courses/mandatory?userId=${user.id}`, { headers: { ...getAuthHeaders() } });
     if (!response.ok) {
-      throw new Error('Failed to fetch courses');
+      const errorData = await response.json().catch(() => ({ message: 'Failed to fetch courses' }));
+      throw new Error(errorData.message);
     }
-    const courses: Course[] = await response.json();
-    return courses;
+    const data = await response.json();
+    return data;
   },
   
   getElectiveCourses: async (): Promise<Course[]> => {
