@@ -48,10 +48,10 @@ const App = () => {
             {/* Public routes */}
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
-            
+
             {/* Protected dashboard routes */}
-            <Route 
-              path="/dashboard" 
+            <Route
+              path="/dashboard"
               element={
                 <ProtectedRoute>
                   <DashboardLayout />
@@ -65,13 +65,13 @@ const App = () => {
               <Route path="services/feeslip" element={<FeeSlip />} />
               <Route path="requests" element={<Requests />} />
               <Route path="notifications" element={<Notifications />} />
-              
+
               {/* Admin routes */}
               <Route path="admin" element={<AdminDashboard />} />
               <Route path="student-requests" element={<StudentRequests />} />
               <Route path="events" element={<Events />} />
             </Route>
-            
+
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -15,7 +15,7 @@ export interface User {
   department: string;
   semester: string;
   mobileNumber: string;
-  role: 'student' | 'admin';
+  role: "student" | "admin";
   position: string;
   profilePicture?: string; // Added profile picture field
   createdAt: Date;
@@ -25,8 +25,8 @@ export interface User {
 // Course model
 export interface Course {
   id: string;
-  name: string;
-  code: string;
+  course_name: string;
+  course_code: string;
   department: string;
   semester: string;
   credits: number;
@@ -44,7 +44,7 @@ export interface Course {
 export interface FeeReceipt {
   id: string;
   userId: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: "pending" | "approved" | "rejected";
   file: string; // URL or path to file
   semester: string | null;
   createdAt: Date;
@@ -55,8 +55,8 @@ export interface FeeReceipt {
 export interface Request {
   id: string;
   userId: string;
-  type: 'gatepass' | 'feeslip' | 'elective';
-  status: 'pending' | 'approved' | 'rejected' | 'on_hold';
+  type: "gatepass" | "feeslip" | "elective";
+  status: "pending" | "approved" | "rejected" | "on_hold";
   details: any; // JSON data with request-specific details
   holdStartDate?: Date; // Date when the request was put on hold
   createdAt: Date;

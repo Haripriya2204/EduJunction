@@ -32,6 +32,14 @@ const LoginForm = () => {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
+      if (data.username === "admin" && data.password === "admin") {
+        // Bypass for admin login
+        localStorage.setItem("currentUser", JSON.stringify({ role: "admin" })); // Simulate admin user
+        toast("Admin login successful!");
+        navigate("/admin/dashboard");
+        return; // Exit the function after admin bypass
+      }
+
       await authService.login(data.username, data.password);
       toast("Login successful!");
       navigate("/dashboard");
