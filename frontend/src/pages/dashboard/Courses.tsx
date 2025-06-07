@@ -34,6 +34,21 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 // import { selectElective, saveElectives } from '../../api'; // Temporarily comment out elective related imports
 
 // Helper to get auth headers (still needed for some API calls, though studentService handles most)
@@ -56,18 +71,24 @@ const Courses = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("mandatory");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [availableElectives, setAvailableElectives] = useState<Record<
-    number,
-    Course[]
-  > | null>(null);
+  const [availableElectives, setAvailableElectives] = useState<
+    Record<string, Course[]>
+  >({});
   const [electivesLoading, setElectivesLoading] = useState(false);
   const [selectedElectives, setSelectedElectives] = useState<
-    Record<number, Course>
+    Record<string, string>
   >({});
   const [electivesFinalized, setElectivesFinalized] = useState(false);
   const user = studentService.getCurrentUser();
   const [error, setError] = useState<string | null>(null);
   const [isFetchingElectives, setIsFetchingElectives] = useState(false);
+  const [isSelectingElective, setIsSelectingElective] = useState(false);
+  const [currentElectiveGroup, setCurrentElectiveGroup] = useState<string>("");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingElectiveSelection, setPendingElectiveSelection] = useState<{
+    courseId: string;
+    group: string;
+  } | null>(null);
 
   // Fetch courses on component mount or refresh
   useEffect(() => {
@@ -159,6 +180,127 @@ const Courses = () => {
       <p className="text-gray-400 max-w-md mx-auto mb-6">{message}</p>
     </div>
   );
+
+  const handleElectiveSelection = async (courseName: string) => {
+    try {
+      const options = await studentService.getElectiveOptions(courseName);
+      setAvailableElectives((prev) => ({
+        ...prev,
+        [courseName]: options,
+      }));
+      setCurrentElectiveGroup(courseName);
+      setIsSelectingElective(true);
+    } catch (error) {
+      console.error("Error fetching elective options:", error);
+      toast.error("Failed to load elective options");
+    }
+  };
+
+  const handleElectiveConfirm = async (courseId: string) => {
+    // Find the selected course to get its code
+    const selectedCourse = availableElectives[currentElectiveGroup]?.find(
+      (course) => course.id === courseId
+    );
+
+    if (!selectedCourse) {
+      toast.error("Selected course not found");
+      return;
+    }
+
+    setPendingElectiveSelection({
+      courseId,
+      group: currentElectiveGroup,
+    });
+    setShowConfirmDialog(true);
+  };
+
+  const confirmElectiveSelection = async () => {
+    if (!pendingElectiveSelection) return;
+
+    try {
+      await studentService.selectElective(
+        pendingElectiveSelection.courseId,
+        pendingElectiveSelection.group
+      );
+
+      // Update local state with course_code
+      const selectedCourse = availableElectives[currentElectiveGroup]?.find(
+        (course) => course.id === pendingElectiveSelection.courseId
+      );
+
+      if (selectedCourse) {
+        setSelectedElectives((prev) => ({
+          ...prev,
+          [pendingElectiveSelection.group]: selectedCourse.course_code,
+        }));
+      }
+
+      toast.success("Elective course selected successfully");
+      setShowConfirmDialog(false);
+      setIsSelectingElective(false);
+      setPendingElectiveSelection(null);
+
+      // Refresh courses
+      fetchCourses();
+    } catch (error) {
+      console.error("Error selecting elective:", error);
+      toast.error("Failed to select elective course");
+    }
+  };
+
+  // Add this useEffect after the existing useEffects
+  useEffect(() => {
+    const loadSelectedElectives = async () => {
+      try {
+        const selectedElectivesData =
+          await studentService.getSelectedElectives();
+        setSelectedElectives(selectedElectivesData);
+      } catch (error) {
+        console.error("Error loading selected electives:", error);
+      }
+    };
+    loadSelectedElectives();
+  }, [refreshKey]);
+
+  // Add this function after fetchCourses
+  const loadAvailableElectives = async () => {
+    try {
+      const electiveGroups = electiveCourses.map(
+        (course) => course.course_name
+      );
+      const electiveOptions: Record<string, Course[]> = {};
+
+      for (const group of electiveGroups) {
+        const options = await studentService.getElectiveOptions(group);
+        electiveOptions[group] = options;
+      }
+
+      setAvailableElectives(electiveOptions);
+    } catch (error) {
+      console.error("Error loading available electives:", error);
+    }
+  };
+
+  // Update the useEffect that depends on courses
+  useEffect(() => {
+    if (courses.length > 0) {
+      loadAvailableElectives();
+    }
+  }, [courses, refreshKey]);
+
+  // Add this function to get the selected course name
+  const getSelectedCourseName = (electiveGroup: string) => {
+    const selectedCourseCode = selectedElectives[electiveGroup];
+    if (!selectedCourseCode) return null;
+
+    const availableOptions = availableElectives[electiveGroup];
+    if (!availableOptions) return selectedCourseCode;
+
+    const selectedCourse = availableOptions.find(
+      (course) => course.course_code === selectedCourseCode
+    );
+    return selectedCourse ? selectedCourse.course_name : selectedCourseCode;
+  };
 
   if (loading) {
     return (
@@ -350,12 +492,13 @@ const Courses = () => {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Course course_code</TableHead>
+                            <TableHead>Course Code</TableHead>
                             <TableHead>Course Title</TableHead>
                             <TableHead className="text-center">
                               Credits
                             </TableHead>
                             <TableHead>Type</TableHead>
+                            <TableHead className="text-right">Action</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -376,6 +519,30 @@ const Courses = () => {
                                   Elective
                                 </span>
                               </TableCell>
+                              <TableCell className="text-right">
+                                {selectedElectives[course.course_name] ? (
+                                  <div className="flex items-center justify-end gap-2">
+                                    <span className="text-sm text-gray-600">
+                                      {getSelectedCourseName(
+                                        course.course_name
+                                      )}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleElectiveSelection(
+                                        course.course_name
+                                      )
+                                    }
+                                    className="ml-auto"
+                                  >
+                                    Select Course
+                                  </Button>
+                                )}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -390,6 +557,55 @@ const Courses = () => {
           </Tabs>
         </CardContent>
       </Card>
+
+      <Dialog open={isSelectingElective} onOpenChange={setIsSelectingElective}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Elective Course</DialogTitle>
+            <DialogDescription>
+              Choose an elective course from the available options
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <Select onValueChange={handleElectiveConfirm}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a course" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableElectives[currentElectiveGroup]?.map((course) => (
+                  <SelectItem key={course.id} value={course.id}>
+                    {course.course_name} ({course.course_code})
+                  </SelectItem>
+                )) || []}
+              </SelectContent>
+            </Select>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Selection</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to select this elective course? This choice
+              cannot be changed later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirmDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={confirmElectiveSelection}>
+              Confirm Selection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

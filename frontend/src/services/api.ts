@@ -569,6 +569,106 @@ export const studentService = {
   getCurrentUser: (): User | null => {
     return authService.getCurrentUser();
   },
+
+  getElectiveOptions: async (courseName: string): Promise<Course[]> => {
+    const user = authService.getCurrentUser();
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    console.log("User object in getCourses:", user);
+
+    const { department, year, semester } = user;
+    const schemaName = `${department.toLowerCase()}_courses`;
+    const tableName = `${year}-${semester}`;
+
+    // Extract the elective group from course name (e.g., "Professional Elective - III" -> "PE-III")
+    const electiveGroup = courseName.includes("Lab")
+      ? courseName.split(" - ")[1].replace("Lab", "LAB") // For PE-III-LAB
+      : `PE-${courseName.split(" - ")[1]}`; // For regular electives
+
+    try {
+      const { data, error } = await supabase
+        .schema(`${schemaName}`)
+        .from(`${electiveGroup}`)
+        .select("*");
+
+      if (error) {
+        console.error("Error fetching elective options:", error);
+        throw error;
+      }
+
+      return data as Course[];
+    } catch (error: any) {
+      console.error("Error fetching elective options:", error);
+      throw new Error(`Failed to fetch elective options: ${error.message}`);
+    }
+  },
+
+  selectElective: async (
+    courseId: string,
+    electiveGroup: string
+  ): Promise<void> => {
+    const user = authService.getCurrentUser();
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      // First, check if user already has selected electives
+      const { data: existingElectives, error: fetchError } = await supabase
+        .from("users")
+        .select("selected_electives")
+        .eq("id", user.id)
+        .single();
+
+      if (fetchError && fetchError.code !== "PGRST116") {
+        // PGRST116 is "no rows returned"
+        throw fetchError;
+      }
+
+      // Initialize or update selected_electives
+      const selectedElectives = existingElectives?.selected_electives || {};
+      selectedElectives[electiveGroup] = courseId;
+
+      // Update user's selected electives
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ selected_electives: selectedElectives })
+        .eq("id", user.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+    } catch (error: any) {
+      console.error("Error selecting elective:", error);
+      throw new Error(`Failed to select elective: ${error.message}`);
+    }
+  },
+
+  getSelectedElectives: async (): Promise<Record<string, string>> => {
+    const user = authService.getCurrentUser();
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("selected_electives")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data?.selected_electives || {};
+    } catch (error: any) {
+      console.error("Error fetching selected electives:", error);
+      throw new Error(`Failed to fetch selected electives: ${error.message}`);
+    }
+  },
 };
 
 // Admin service
