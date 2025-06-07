@@ -3,13 +3,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { 
-  Form, 
-  FormControl, 
-  FormField, 
-  FormItem, 
-  FormLabel, 
-  FormMessage 
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
 } from "../ui/form";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -20,15 +20,15 @@ import { LogIn } from "lucide-react";
 const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  
+
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
-      password: ""
-    }
+      password: "",
+    },
   });
-  
+
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
@@ -42,7 +42,7 @@ const LoginForm = () => {
       setIsLoading(false);
     }
   };
-  
+
   return (
     <div className="w-full max-w-md mx-auto p-6 edu-card animate-fade-in">
       <div className="text-center mb-6">
@@ -52,7 +52,7 @@ const LoginForm = () => {
         <h1 className="text-2xl font-bold text-gray-800">Welcome back</h1>
         <p className="text-gray-600 mt-1">Log in to your account</p>
       </div>
-      
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
           <FormField
@@ -60,35 +60,37 @@ const LoginForm = () => {
             name="username"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Username</FormLabel>
+                <FormLabel>Roll Number</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter your username" {...field} />
+                  <Input placeholder="Enter your roll number" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <FormLabel>Password (Same as Roll Number)</FormLabel>
                 <FormControl>
-                  <Input type="password" placeholder="••••••" {...field} />
+                  <Input
+                    type="password"
+                    placeholder="Enter your roll number"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          
-          <div className="text-sm text-right">
-            <a href="#" className="text-edu-primary hover:underline">
-              Forgot password?
-            </a>
+
+          <div className="text-sm text-gray-600">
+            <p>Use your roll number for both username and password</p>
           </div>
-          
+
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Logging in..." : "Log In"}
           </Button>
