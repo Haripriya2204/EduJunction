@@ -194,7 +194,9 @@ export const studentService = {
     return user;
   },
 
-  getCourses: async (): Promise<{
+  getCourses: async (
+    semester: string
+  ): Promise<{
     courses: Course[];
     selectedElectivesMap: Record<string, Course>;
   }> => {
@@ -203,16 +205,9 @@ export const studentService = {
       throw new Error("User not authenticated");
     }
 
-    console.log("User object in getCourses:", user);
-
-    const { department, year, semester } = user;
-
-    if (!department || !year || !semester) {
-      throw new Error("User department, year, or semester not found.");
-    }
-
+    const { department, year } = user;
     const schemaName = `${department.toLowerCase()}_courses`;
-    const tableName = `${year}-${semester}`;
+    const tableName = semester; // Use semester directly as table name
 
     console.log(
       `Fetching courses from schema: ${schemaName}, table: ${tableName}`
@@ -223,7 +218,7 @@ export const studentService = {
         .schema(`${schemaName}`)
         .from(`${tableName}`)
         .select("*")
-        .limit(100); // Limit to prevent large data fetches
+        .limit(100);
 
       if (error) {
         console.error(
@@ -639,8 +634,25 @@ export const studentService = {
       }
 
       // Initialize or update selected_electives
+      const { department, year, semester } = user;
+      const schemaName = `${department.toLowerCase()}_courses`;
+      const tableName = `${year}-${semester}`;
+
+      const { data: allCourses } = await supabase
+        .schema(schemaName)
+        .from(tableName)
+        .select("id, course_code")
+        .eq("id", courseId)
+        .single();
+
+      if (fetchError || !allCourses) {
+        throw new Error(
+          "Failed to retrieve course_code for the selected elective"
+        );
+      }
+
       const selectedElectives = existingElectives?.selected_electives || {};
-      selectedElectives[electiveGroup] = courseId;
+      selectedElectives[electiveGroup] = allCourses.course_code;
 
       // Update user's selected electives
       const { error: updateError } = await supabase
@@ -678,6 +690,31 @@ export const studentService = {
     } catch (error: any) {
       console.error("Error fetching selected electives:", error);
       throw new Error(`Failed to fetch selected electives: ${error.message}`);
+    }
+  },
+
+  getAvailableSemesters: async (): Promise<string[]> => {
+    const user = authService.getCurrentUser();
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      // Get all available semesters for the user's department
+      const { data, error } = await supabase
+        .schema(`${user.department.toLowerCase()}_courses`)
+        .from("semesters")
+        .select("semester")
+        .order("semester");
+
+      if (error) {
+        throw error;
+      }
+
+      return data.map((row) => row.semester);
+    } catch (error: any) {
+      console.error("Error fetching available semesters:", error);
+      throw new Error(`Failed to fetch available semesters: ${error.message}`);
     }
   },
 };

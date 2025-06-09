@@ -62,6 +62,18 @@ const getAuthHeaders = () => {
 
 // Remove romanNumerals mapping as it's not directly used for course display in this simplified view
 
+// Add this constant at the top of the file, after imports
+const AVAILABLE_SEMESTERS = [
+  "I-I",
+  "I-II",
+  "II-I",
+  "II-II",
+  "III-I",
+  "III-II",
+  "IV-I",
+  "IV-II",
+];
+
 const Courses = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedElectivesMap, setSelectedElectivesMap] = useState<
@@ -71,6 +83,9 @@ const Courses = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("mandatory");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedSemester, setSelectedSemester] = useState<string>(
+    AVAILABLE_SEMESTERS[0]
+  );
   const [availableElectives, setAvailableElectives] = useState<
     Record<string, Course[]>
   >({});
@@ -107,13 +122,15 @@ const Courses = () => {
     checkFeeStatus();
   }, [refreshKey]);
 
+  // Update the fetchCourses function
   const fetchCourses = async () => {
+    if (!selectedSemester) return;
+
     setLoading(true);
     setError(null);
     try {
-      const data = await studentService.getCourses();
+      const data = await studentService.getCourses(selectedSemester);
       setCourses(data.courses || []);
-      // selectedElectivesMap might be empty or not relevant for now
       setSelectedElectivesMap(data.selectedElectivesMap || {});
     } catch (error: any) {
       console.error("Error fetching courses:", error);
@@ -122,6 +139,13 @@ const Courses = () => {
       setLoading(false);
     }
   };
+
+  // Update the useEffect to depend on selectedSemester
+  useEffect(() => {
+    if (selectedSemester) {
+      fetchCourses();
+    }
+  }, [selectedSemester, refreshKey]);
 
   const refreshAllData = () => {
     setRefreshKey((prevKey) => prevKey + 1);
@@ -329,6 +353,18 @@ const Courses = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-800">My Courses</h1>
         <div className="flex flex-wrap items-center gap-2">
+          <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select Semester" />
+            </SelectTrigger>
+            <SelectContent>
+              {AVAILABLE_SEMESTERS.map((semester) => (
+                <SelectItem key={semester} value={semester}>
+                  Semester {semester}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button
             variant="outline"
             onClick={refreshAllData}
@@ -498,7 +534,7 @@ const Courses = () => {
                               Credits
                             </TableHead>
                             <TableHead>Type</TableHead>
-                            <TableHead className="text-right">Action</TableHead>
+                            <TableHead className="text-right"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
