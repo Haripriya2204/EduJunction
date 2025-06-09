@@ -583,9 +583,20 @@ export const studentService = {
     const tableName = `${year}-${semester}`;
 
     // Extract the elective group from course name (e.g., "Professional Elective - III" -> "PE-III")
-    const electiveGroup = courseName.includes("Lab")
-      ? courseName.split(" - ")[1].replace("Lab", "LAB") // For PE-III-LAB
-      : `PE-${courseName.split(" - ")[1]}`; // For regular electives
+    console.log("Course name:", courseName);
+
+    // Replace en dash with regular hyphen and normalize whitespace around dashes
+    const normalizedName = courseName
+      .replace(/–/g, "-") // Replace en dash with regular hyphen
+      .replace(/\s*-\s*/g, " - "); // Normalize whitespace around hyphens
+
+    console.log("Normalized name:", normalizedName);
+
+    const electiveGroup = normalizedName.includes("Lab")
+      ? normalizedName.split(" - ")[1].replace("Lab", "LAB") // For PE-III-LAB
+      : `PE-${normalizedName.split(" - ")[1]}`; // For regular electives
+
+    console.log("Elective group:", electiveGroup);
 
     try {
       const { data, error } = await supabase

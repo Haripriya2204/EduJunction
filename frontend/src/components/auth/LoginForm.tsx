@@ -36,7 +36,7 @@ const LoginForm = () => {
         // Bypass for admin login
         localStorage.setItem("currentUser", JSON.stringify({ role: "admin" })); // Simulate admin user
         toast("Admin login successful!");
-        navigate("/admin/dashboard");
+        navigate("/dashboard");
         return; // Exit the function after admin bypass
       }
 
