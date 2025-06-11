@@ -638,21 +638,34 @@ export const studentService = {
       const schemaName = `${department.toLowerCase()}_courses`;
       const tableName = `${year}-${semester}`;
 
+      const inputElectiveGroup: string = electiveGroup;
+      const normalizedName: string = inputElectiveGroup
+        .replace(/–/g, "-") // Replace en dash with regular hyphen
+        .replace(/\s*-\s*/g, " - "); // Normalize whitespace around hyphens
+
+      console.log("Normalized name:", normalizedName);
+
+      const finalElectiveGroup: string = normalizedName.includes("Lab")
+        ? normalizedName.split(" - ")[1].replace("Lab", "LAB") // For PE-III-LAB
+        : `PE-${normalizedName.split(" - ")[1]}`;
+
       const { data: allCourses } = await supabase
         .schema(schemaName)
-        .from(tableName)
+        .from(finalElectiveGroup)
         .select("id, course_code")
         .eq("id", courseId)
         .single();
 
       if (fetchError || !allCourses) {
+        console.log(courseId);
+        console.log(finalElectiveGroup);
         throw new Error(
           "Failed to retrieve course_code for the selected elective"
         );
       }
 
       const selectedElectives = existingElectives?.selected_electives || {};
-      selectedElectives[electiveGroup] = allCourses.course_code;
+      selectedElectives[finalElectiveGroup] = allCourses.course_code;
 
       // Update user's selected electives
       const { error: updateError } = await supabase

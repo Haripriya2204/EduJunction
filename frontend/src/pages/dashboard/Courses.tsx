@@ -264,8 +264,15 @@ const Courses = () => {
       setIsSelectingElective(false);
       setPendingElectiveSelection(null);
 
-      // Refresh courses
-      fetchCourses();
+      // Refresh all necessary data
+      await Promise.all([
+        studentService.getSelectedElectives().then(setSelectedElectives),
+        loadAvailableElectives(),
+        fetchCourses(),
+      ]);
+
+      // Force a complete refresh of the component
+      setRefreshKey((prev) => prev + 1);
     } catch (error) {
       console.error("Error selecting elective:", error);
       toast.error("Failed to select elective course");
@@ -312,18 +319,43 @@ const Courses = () => {
     }
   }, [courses, refreshKey]);
 
-  // Add this function to get the selected course name
+  // Add this helper function to normalize elective group names
+  const normalizeElectiveGroupName = (name: string): string => {
+    const normalizedName = name
+      .replace(/–/g, "-") // Replace en dash with regular hyphen
+      .replace(/\s*-\s*/g, " - "); // Normalize whitespace around hyphens
+
+    return normalizedName.includes("Lab")
+      ? normalizedName.split(" - ")[1].replace("Lab", "LAB") // For PE-III-LAB
+      : `PE-${normalizedName.split(" - ")[1]}`;
+  };
+
+  // Update the getSelectedCourseName function to correctly find the selected course
   const getSelectedCourseName = (electiveGroup: string) => {
-    const selectedCourseCode = selectedElectives[electiveGroup];
+    const normalizedGroup = normalizeElectiveGroupName(electiveGroup);
+    const selectedCourseCode = selectedElectives[normalizedGroup];
     if (!selectedCourseCode) return null;
 
+    // Get all available options for this elective group
     const availableOptions = availableElectives[electiveGroup];
     if (!availableOptions) return selectedCourseCode;
 
+    // Find the course that matches the selected course code
     const selectedCourse = availableOptions.find(
       (course) => course.course_code === selectedCourseCode
     );
-    return selectedCourse ? selectedCourse.course_name : selectedCourseCode;
+
+    // If we can't find the course in available options, return the course code
+    if (!selectedCourse) {
+      console.log("Selected course not found in available options:", {
+        selectedCourseCode,
+        availableOptions,
+        electiveGroup,
+      });
+      return selectedCourseCode;
+    }
+
+    return selectedCourse.course_name;
   };
 
   if (loading) {
@@ -556,7 +588,9 @@ const Courses = () => {
                                 </span>
                               </TableCell>
                               <TableCell className="text-right">
-                                {selectedElectives[course.course_name] ? (
+                                {selectedElectives[
+                                  normalizeElectiveGroupName(course.course_name)
+                                ] ? (
                                   <div className="flex items-center justify-end gap-2">
                                     <span className="text-sm text-gray-600">
                                       {getSelectedCourseName(
