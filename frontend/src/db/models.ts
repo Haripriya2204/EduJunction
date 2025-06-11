@@ -84,6 +84,19 @@ export interface Notification {
   createdAt: Date;
 }
 
+// OpenElective model
+export interface OpenElective {
+  id: string;
+  course_code: string;
+  course_name: string;
+  department: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// List of detained students (comma-separated roll numbers)
+export const DETAINED_STUDENTS = "23R21A12B3,2020CS002,2020CS003,2020CS004,2020CS005";
+
 /**
  * SQLite table creation statements - for reference only
  * In a real app, these would be in migration files or handled by an ORM

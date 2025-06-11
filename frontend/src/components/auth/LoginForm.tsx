@@ -14,7 +14,7 @@ import {
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { loginSchema, LoginFormData } from "../../lib/validation";
-import { authService } from "../../services/api";
+import { login } from "../../services/auth";
 import { LogIn } from "lucide-react";
 
 const LoginForm = () => {
@@ -34,18 +34,26 @@ const LoginForm = () => {
     try {
       if (data.username === "admin" && data.password === "admin") {
         // Bypass for admin login
-        localStorage.setItem("currentUser", JSON.stringify({ role: "admin" })); // Simulate admin user
+        localStorage.setItem("currentUser", JSON.stringify({ role: "admin" }));
         toast("Admin login successful!");
         navigate("/dashboard");
-        return; // Exit the function after admin bypass
+        return;
       }
 
-      await authService.login(data.username, data.password);
-      toast("Login successful!");
+      const result = await login({ rollNo: data.username, password: data.password });
+      
+      if (!result.success) {
+        toast.error(result.message);
+        return;
+      }
+
+      localStorage.setItem("currentUser", JSON.stringify(result.user));
+      toast.success("Login successful!");
       navigate("/dashboard");
-    } catch (error: any) {
-      console.error(error);
-      toast(error.message || "Failed to login");
+    } catch (error: unknown) {
+      console.error("Login error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to login";
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
