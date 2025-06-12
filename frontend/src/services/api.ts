@@ -194,47 +194,102 @@ export const studentService = {
     return user;
   },
 
-  getCourses: async (
-    semester: string
-  ): Promise<{
-    courses: Course[];
-    selectedElectivesMap: Record<string, Course>;
-  }> => {
+  getCourses: async (semester: string) => {
     const user = authService.getCurrentUser();
     if (!user) {
       throw new Error("User not authenticated");
     }
 
-    const { department, year } = user;
-    const schemaName = `${department.toLowerCase()}_courses`;
-    const tableName = semester; // Use semester directly as table name
-
-    console.log(
-      `Fetching courses from schema: ${schemaName}, table: ${tableName}`
-    );
-
     try {
-      const { data, error } = await supabase
-        .schema(`${schemaName}`)
-        .from(`${tableName}`)
-        .select("*")
-        .limit(100);
+      console.log(`getCourses: Fetching courses for user ${user.email} in department ${user.department}`);
+      
+      const schema = `${user.department.toLowerCase()}_courses`;
+      console.log(`getCourses: Using schema: ${schema}, table: ${semester}`);
+      
+      // Use the correct supabase schema method from elsewhere in the codebase
+      const { data: rawCourses, error } = await supabase
+        .schema(schema)
+        .from(semester)
+        .select("*");
 
       if (error) {
-        console.error(
-          `Error fetching courses from ${schemaName}.${tableName}:`,
-          error
-        );
-        throw error;
+        console.error("getCourses: Error fetching courses:", error);
+        throw new Error("Failed to fetch courses");
       }
+      
+      console.log(`getCourses: Successfully fetched ${rawCourses.length} raw courses`);
 
-      return {
-        courses: data as Course[],
-        selectedElectivesMap: {},
-      };
-    } catch (error: any) {
-      console.error("Supabase query error:", error);
-      throw new Error(`Failed to fetch courses: ${error.message}`);
+      // Process the courses to ensure proper typing and flags
+      const courses = rawCourses.map(course => {
+        const courseName = course.course_name || "";
+        const courseNameLower = courseName.toLowerCase();
+        
+        // Explicitly set isElective flag for elective courses
+        const isProfessionalElective = courseNameLower.includes("professional elective");
+        const isOpenElective = courseNameLower.includes("open elective") || course.course_code === "OEC";
+        
+        return {
+          ...course,
+          isElective: course.isElective || isProfessionalElective || isOpenElective,
+          // Ensure these fields are present
+          course_name: courseName,
+          course_code: course.course_code || "",
+          department: course.department || user.department,
+          credits: course.credits || 0
+        };
+      });
+      
+      console.log(`getCourses: Processed courses:`, courses);
+      console.log(`getCourses: Identified ${courses.filter(c => c.isElective).length} elective courses`);
+
+      const selectedElectivesMap: Record<string, string> = {};
+
+      // Process elective courses to find selected ones
+      for (const course of courses) {
+        if (!course.isElective) continue;
+        
+        const courseNameLower = (course.course_name || "").toLowerCase();
+        const isProfessionalElective = courseNameLower.includes("professional elective");
+        const isOpenElective = courseNameLower.includes("open elective") || course.course_code === "OEC";
+        
+        if (isProfessionalElective || isOpenElective) {
+          console.log(`getCourses: Processing elective course: "${course.course_name}"`);
+          
+          const electiveType = isProfessionalElective ? "PE" : "OE";
+          
+          // Normalize the course name and extract the elective number
+          const normalizedName = course.course_name
+            .replace(/–/g, "-")  // Replace en dash with regular hyphen
+            .replace(/\s*-\s*/g, " - ");  // Normalize whitespace around hyphens
+            
+          const parts = normalizedName.split(" - ");
+          if (parts.length < 2) {
+            console.warn(`getCourses: Could not parse elective group from "${course.course_name}"`);
+            continue;
+          }
+          
+          const electiveNumber = parts[1];
+          const electiveGroup = `${electiveType}-${electiveNumber}`;
+          console.log(`getCourses: Mapped to elective group: "${electiveGroup}"`);
+          
+          // Check if user has selected an elective for this group
+          const userSelectedElectives = user.selected_electives || {};
+          const selectedCourseCode = userSelectedElectives[electiveGroup];
+          
+          if (selectedCourseCode) {
+            console.log(`getCourses: User has selected elective for ${electiveGroup}: ${selectedCourseCode}`);
+            selectedElectivesMap[course.course_name] = selectedCourseCode;
+          } else {
+            console.log(`getCourses: No selected elective found for ${electiveGroup}`);
+          }
+        }
+      }
+      
+      console.log("getCourses: Final selected electives map:", selectedElectivesMap);
+      return { courses, selectedElectivesMap };
+    } catch (error) {
+      console.error("getCourses: Final catch block error:", error);
+      throw new Error("Failed to fetch courses");
     }
   },
 
@@ -728,6 +783,302 @@ export const studentService = {
     } catch (error: any) {
       console.error("Error fetching available semesters:", error);
       throw new Error(`Failed to fetch available semesters: ${error.message}`);
+    }
+  },
+
+  getOpenElectiveOptions: async (courseName: string): Promise<Course[]> => {
+    const user = authService.getCurrentUser();
+    if (!user) {
+      console.error("getOpenElectiveOptions: User not authenticated");
+      throw new Error("User not authenticated");
+    }
+    console.log(`getOpenElectiveOptions: Called for user ${user.email} in department ${user.department}`);
+    console.log(`getOpenElectiveOptions: Received courseName: "${courseName}"`);
+
+    // Handle case where courseName might be empty
+    if (!courseName) {
+      courseName = "Open Elective-I";
+      console.log(`getOpenElectiveOptions: Empty courseName, defaulting to "${courseName}"`);
+    }
+
+    // Try to determine the elective group from the course name
+    let electiveGroup = "";
+    
+    // For names like "Open Elective - I" or "Open Elective-I"
+    if (courseName.toLowerCase().includes("open elective")) {
+      // Normalize the course name
+      const normalizedName = courseName
+        .replace(/–/g, "-")
+        .replace(/\s*-\s*/g, " - ");
+      
+      const parts = normalizedName.split(" - ");
+      if (parts.length >= 2) {
+        electiveGroup = `OE-${parts[1]}`;
+      } else {
+        // Try to extract roman numeral (I, II, III) from the name
+        const match = courseName.match(/[IVX]+$/);
+        if (match) {
+          electiveGroup = `OE-${match[0]}`;
+        } else {
+          // Default to OE-I if we can't determine
+          electiveGroup = "OE-I";
+        }
+      }
+    } 
+    // For course code "OEC"
+    else if (courseName.toUpperCase() === "OEC") {
+      // Use OE-I as the default for OEC course code
+      electiveGroup = "OE-I";
+    }
+    // Default fallback
+    else {
+      electiveGroup = "OE-I";
+    }
+    
+    console.log(`getOpenElectiveOptions: Determined table name: "${electiveGroup}"`);
+
+    try {
+      interface OpenElectiveRecord {
+        id: string | number;
+        course_code: string;
+        course_name: string;
+        offering_department: string;
+        enrolled_out: boolean | string;
+      }
+      
+      // Get all department schemas to check
+      const departmentSchemas = [
+        'it_courses',
+        'cse_courses',
+        'ece_courses',
+        'mech_courses',
+        'hsm_courses',
+        'aero_courses'
+      ];
+      
+      // First try the user's department schema
+      departmentSchemas.unshift(`${user.department.toLowerCase()}_courses`);
+      
+      console.log(`getOpenElectiveOptions: Will try these schemas:`, departmentSchemas);
+      
+      let data: OpenElectiveRecord[] = [];
+      
+      // Try each schema
+      for (const schema of departmentSchemas) {
+        console.log(`getOpenElectiveOptions: Trying schema "${schema}" with table "${electiveGroup}"`);
+        
+        // Query the table with schema
+        const result = await supabase
+          .schema(schema)
+          .from(electiveGroup)
+          .select('id, course_code, course_name, offering_department, enrolled_out');
+          
+        if (!result.error && result.data && result.data.length > 0) {
+          console.log(`getOpenElectiveOptions: Success! Found data in "${schema}.${electiveGroup}"`, result.data);
+          data = [...data, ...result.data as OpenElectiveRecord[]];
+        } else {
+          console.log(`getOpenElectiveOptions: No data found in "${schema}.${electiveGroup}" or error:`, result.error);
+        }
+      }
+      
+      if (data.length === 0) {
+        console.error(`getOpenElectiveOptions: Could not find data in any of the attempted schemas/tables`);
+        return [];
+      }
+      
+      console.log(`getOpenElectiveOptions: Successfully fetched ${data.length} raw course(s):`, data);
+
+      // Instead of filtering, mark courses as unavailable
+      return data.map((course) => {
+        // Check department against user's department (case insensitive)
+        const isFromUserDepartment = 
+          course.offering_department && 
+          user.department && 
+          course.offering_department.toUpperCase() === user.department.toUpperCase();
+        
+        // Check if course is enrolled out (could be boolean or string "true"/"false")
+        const isEnrolledOut = 
+          course.enrolled_out === true || 
+          course.enrolled_out === "true";
+
+        // Generate a reason why this course might be unavailable
+        let unavailableReason = "";
+        if (isFromUserDepartment) {
+          unavailableReason = "Cannot select electives from your own department";
+        } else if (isEnrolledOut) {
+          unavailableReason = "Course enrollment limit reached";
+        }
+
+        // Map fields to match the Course interface
+        return {
+          id: (course.id?.toString() || course.course_code || `oe-${Math.random().toString(36).substring(2, 9)}`),
+          course_name: course.course_name,
+          course_code: course.course_code,
+          department: course.offering_department,
+          semester: user.semester || "",
+          credits: 3, // Default credits for open electives
+          isElective: true,
+          category: "open",
+          isAvailable: !isFromUserDepartment && !isEnrolledOut,
+          unavailableReason: unavailableReason,
+          enrolled_out: isEnrolledOut,
+          fromUserDepartment: isFromUserDepartment,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+      });
+    } catch (error: unknown) {
+      console.error("getOpenElectiveOptions: Final catch block error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      throw new Error(`Failed to fetch open elective options: ${errorMessage}`);
+    }
+  },
+
+  selectOpenElective: async (courseName: string, courseId: string): Promise<void> => {
+    const user = authService.getCurrentUser();
+    if (!user) {
+      console.error("selectOpenElective: User not authenticated");
+      throw new Error("User not authenticated");
+    }
+    console.log(`selectOpenElective: Called for user ${user.email}, courseName: "${courseName}", courseId: "${courseId}"`);
+
+    // Determine elective group (table name) from course name
+    let electiveGroup = "";
+    
+    if (courseName.toLowerCase().includes("open elective")) {
+      // Normalize the course name
+      const normalizedName = courseName
+        .replace(/–/g, "-")
+        .replace(/\s*-\s*/g, " - ");
+      
+      const parts = normalizedName.split(" - ");
+      if (parts.length >= 2) {
+        electiveGroup = `OE-${parts[1]}`;
+      } else {
+        // Try to extract roman numeral (I, II, III) from the name
+        const match = courseName.match(/[IVX]+$/);
+        if (match) {
+          electiveGroup = `OE-${match[0]}`;
+        } else {
+          // Default to OE-I if we can't determine
+          electiveGroup = "OE-I";
+        }
+      }
+    } 
+    // For course code "OEC"
+    else if (courseName.toUpperCase() === "OEC") {
+      electiveGroup = "OE-I"; // Default to first open elective
+    }
+    // Default fallback
+    else {
+      electiveGroup = "OE-I";
+    }
+    
+    console.log(`selectOpenElective: Determined table name: "${electiveGroup}"`);
+    
+    try {
+      interface OpenElectiveRecord {
+        id: string | number;
+        course_code: string;
+        course_name: string;
+        offering_department: string;
+        enrolled_out: boolean | string;
+      }
+      
+      // Try to find the department schema that contains the selected course
+      const departmentSchemas = [
+        'it_courses',
+        'cse_courses',
+        'ece_courses',
+        'mech_courses',
+        'hsm_courses',
+        'aero_courses'
+      ];
+      
+      let selectedCourse: OpenElectiveRecord | null = null;
+      let foundSchema = '';
+      
+      // Search each schema for the selected course
+      for (const schema of departmentSchemas) {
+        console.log(`selectOpenElective: Searching in schema "${schema}" for course ID ${courseId}`);
+        
+        // Query the table in each schema
+        const result = await supabase
+          .schema(schema)
+          .from(electiveGroup)
+          .select('id, course_code, course_name, offering_department, enrolled_out')
+          .eq('id', courseId)
+          .maybeSingle();
+          
+        if (!result.error && result.data) {
+          console.log(`selectOpenElective: Found course in "${schema}.${electiveGroup}":`, result.data);
+          selectedCourse = result.data as OpenElectiveRecord;
+          foundSchema = schema;
+          break;
+        }
+      }
+      
+      if (!selectedCourse) {
+        throw new Error(`Course with ID ${courseId} not found in any schema`);
+      }
+      
+      console.log(`selectOpenElective: Found course:`, selectedCourse);
+      
+      // Check for availability
+      // Check department against user's department (case insensitive)
+      const isFromUserDepartment = 
+        selectedCourse.offering_department && 
+        user.department && 
+        selectedCourse.offering_department.toUpperCase() === user.department.toUpperCase();
+      
+      // Check if course is enrolled out
+      const isEnrolledOut = 
+        selectedCourse.enrolled_out === true || 
+        selectedCourse.enrolled_out === "true";
+
+      // Throw error if course is not available
+      if (isFromUserDepartment) {
+        throw new Error("You cannot select an open elective from your own department.");
+      }
+      
+      if (isEnrolledOut) {
+        throw new Error("This course has reached its enrollment limit.");
+      }
+      
+      // Now retrieve user's selected electives
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("selected_electives")
+        .eq("id", user.id)
+        .single();
+        
+      if (userError) {
+        throw userError;
+      }
+      
+      // Initialize or update the selected_electives object
+      const selectedElectives = userData?.selected_electives || {};
+      
+      // Set the selection using the normalized elective group name and course code
+      selectedElectives[electiveGroup] = selectedCourse.course_code;
+      
+      console.log(`selectOpenElective: Updating user's selected electives:`, selectedElectives);
+      
+      // Update the user record
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ selected_electives: selectedElectives })
+        .eq("id", user.id);
+        
+      if (updateError) {
+        throw updateError;
+      }
+      
+      console.log(`selectOpenElective: Successfully updated user's selected electives`);
+    } catch (error: unknown) {
+      console.error("selectOpenElective: Error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      throw new Error(`Failed to select open elective: ${errorMessage}`);
     }
   },
 };

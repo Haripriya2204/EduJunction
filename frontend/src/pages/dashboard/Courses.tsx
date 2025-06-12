@@ -77,7 +77,7 @@ const AVAILABLE_SEMESTERS = [
 const Courses = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedElectivesMap, setSelectedElectivesMap] = useState<
-    Record<string, Course>
+    Record<string, string>
   >({});
   const [feeStatus, setFeeStatus] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -132,9 +132,10 @@ const Courses = () => {
       const data = await studentService.getCourses(selectedSemester);
       setCourses(data.courses || []);
       setSelectedElectivesMap(data.selectedElectivesMap || {});
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching courses:", error);
-      setError(error.message || "Failed to fetch courses");
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch courses";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -158,11 +159,27 @@ const Courses = () => {
   // isElectivePlaceholder is not needed as all courses are treated as mandatory
 
   const mandatoryCourses = useMemo(() => {
-    return courses.filter((course) => course.course_code !== "PCC");
+    return courses.filter((course) => {
+      // Not an elective if the course code is not PCC or OEC
+      const isPE = course.course_code === "PCC";
+      const isOE = course.course_code === "OEC";
+      const nameHasElective = (course.course_name || "").toLowerCase().includes("elective");
+      
+      // Course is mandatory if it's not an elective by any measure
+      return !(isPE || isOE || nameHasElective || course.isElective);
+    });
   }, [courses]);
 
   const electiveCourses = useMemo(() => {
-    return courses.filter((course) => course.course_code === "PCC");
+    return courses.filter((course) => {
+      // Check if this is an elective by course code or name
+      const isPE = course.course_code === "PCC";
+      const isOE = course.course_code === "OEC";
+      const nameHasElective = (course.course_name || "").toLowerCase().includes("elective");
+      
+      // Course is an elective if it matches any elective criteria
+      return isPE || isOE || nameHasElective || course.isElective;
+    });
   }, [courses]);
 
   // electivePlaceholders is no longer needed in this context, as electives are now explicitly filtered
@@ -207,14 +224,27 @@ const Courses = () => {
 
   const handleElectiveSelection = async (courseName: string) => {
     try {
-      const options = await studentService.getElectiveOptions(courseName);
+      // Determine if this is an open or professional elective
+      const isOpenElective = courseName.toLowerCase().includes("open elective");
+      
+      let options: Course[];
+      if (isOpenElective) {
+        console.log("Fetching open elective options for:", courseName);
+        options = await studentService.getOpenElectiveOptions(courseName);
+      } else {
+        console.log("Fetching professional elective options for:", courseName);
+        options = await studentService.getElectiveOptions(courseName);
+      }
+      
+      console.log("Received elective options:", options);
+      
       setAvailableElectives((prev) => ({
         ...prev,
         [courseName]: options,
       }));
       setCurrentElectiveGroup(courseName);
       setIsSelectingElective(true);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching elective options:", error);
       toast.error("Failed to load elective options");
     }
@@ -231,6 +261,21 @@ const Courses = () => {
       return;
     }
 
+    console.log("Selected course for confirmation:", selectedCourse);
+    
+    // Check if the course is available for selection
+    if (selectedCourse.isAvailable === false) {
+      const reason = selectedCourse.unavailableReason || 
+        (selectedCourse.fromUserDepartment 
+          ? "You cannot select electives from your own department" 
+          : selectedCourse.enrolled_out 
+            ? "This course has reached its enrollment limit" 
+            : "This course is not available for selection");
+      
+      toast.error(reason);
+      return;
+    }
+    
     setPendingElectiveSelection({
       courseId,
       group: currentElectiveGroup,
@@ -242,10 +287,22 @@ const Courses = () => {
     if (!pendingElectiveSelection) return;
 
     try {
-      await studentService.selectElective(
-        pendingElectiveSelection.courseId,
-        pendingElectiveSelection.group
-      );
+      // Determine if this is an open or professional elective
+      const isOpenElective = pendingElectiveSelection.group.toLowerCase().includes("open elective");
+      
+      if (isOpenElective) {
+        console.log("Selecting open elective:", pendingElectiveSelection);
+        await studentService.selectOpenElective(
+          pendingElectiveSelection.group,
+          pendingElectiveSelection.courseId
+        );
+      } else {
+        console.log("Selecting professional elective:", pendingElectiveSelection);
+        await studentService.selectElective(
+          pendingElectiveSelection.courseId,
+          pendingElectiveSelection.group
+        );
+      }
 
       // Update local state with course_code
       const selectedCourse = availableElectives[currentElectiveGroup]?.find(
@@ -253,10 +310,12 @@ const Courses = () => {
       );
 
       if (selectedCourse) {
-        setSelectedElectives((prev) => ({
-          ...prev,
-          [pendingElectiveSelection.group]: selectedCourse.course_code,
-        }));
+        // Create new selected electives object with the new selection
+        const updatedElectives: Record<string, string> = {
+          ...selectedElectives,
+          [normalizeElectiveGroupName(pendingElectiveSelection.group)]: selectedCourse.course_code,
+        };
+        setSelectedElectives(updatedElectives);
       }
 
       toast.success("Elective course selected successfully");
@@ -266,14 +325,13 @@ const Courses = () => {
 
       // Refresh all necessary data
       await Promise.all([
-        studentService.getSelectedElectives().then(setSelectedElectives),
         loadAvailableElectives(),
         fetchCourses(),
       ]);
 
       // Force a complete refresh of the component
       setRefreshKey((prev) => prev + 1);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error selecting elective:", error);
       toast.error("Failed to select elective course");
     }
@@ -283,17 +341,16 @@ const Courses = () => {
   useEffect(() => {
     const loadSelectedElectives = async () => {
       try {
-        const selectedElectivesData =
-          await studentService.getSelectedElectives();
+        const selectedElectivesData = await studentService.getSelectedElectives();
         setSelectedElectives(selectedElectivesData);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error loading selected electives:", error);
       }
     };
     loadSelectedElectives();
   }, [refreshKey]);
 
-  // Add this function after fetchCourses
+  // Update the loadAvailableElectives function
   const loadAvailableElectives = async () => {
     try {
       const electiveGroups = electiveCourses.map(
@@ -302,12 +359,26 @@ const Courses = () => {
       const electiveOptions: Record<string, Course[]> = {};
 
       for (const group of electiveGroups) {
-        const options = await studentService.getElectiveOptions(group);
+        console.log("Loading options for elective group:", group);
+        
+        // Determine if this is an open or professional elective
+        const isOpenElective = group.toLowerCase().includes("open elective");
+        
+        let options: Course[];
+        if (isOpenElective) {
+          console.log("Fetching open elective options for:", group);
+          options = await studentService.getOpenElectiveOptions(group);
+        } else {
+          console.log("Fetching professional elective options for:", group);
+          options = await studentService.getElectiveOptions(group);
+        }
+        
+        console.log(`Received ${options.length} options for ${group}:`, options);
         electiveOptions[group] = options;
       }
 
       setAvailableElectives(electiveOptions);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error loading available electives:", error);
     }
   };
@@ -321,6 +392,29 @@ const Courses = () => {
 
   // Add this helper function to normalize elective group names
   const normalizeElectiveGroupName = (name: string): string => {
+    // Check if this is an Open Elective first
+    if (name.toLowerCase().includes("open elective")) {
+      const normalizedName = name
+        .replace(/–/g, "-") // Replace en dash with regular hyphen
+        .replace(/\s*-\s*/g, " - "); // Normalize whitespace around hyphens
+        
+      // Extract the number/identifier (I, II, III) from the name
+      const parts = normalizedName.split(" - ");
+      if (parts.length >= 2) {
+        return `OE-${parts[1]}`;
+      }
+      
+      // If we can't split, try to extract roman numeral
+      const match = normalizedName.match(/[IVX]+$/);
+      if (match) {
+        return `OE-${match[0]}`;
+      }
+      
+      // Default for open electives
+      return "OE-I";
+    }
+    
+    // For Professional Electives
     const normalizedName = name
       .replace(/–/g, "-") // Replace en dash with regular hyphen
       .replace(/\s*-\s*/g, " - "); // Normalize whitespace around hyphens
@@ -643,11 +737,34 @@ const Courses = () => {
                 <SelectValue placeholder="Select a course" />
               </SelectTrigger>
               <SelectContent>
-                {availableElectives[currentElectiveGroup]?.map((course) => (
-                  <SelectItem key={course.id} value={course.id}>
-                    {course.course_name} ({course.course_code})
-                  </SelectItem>
-                )) || []}
+                {availableElectives[currentElectiveGroup]?.map((course) => {
+                  const isAvailable = course.isAvailable !== false;
+                  const warningText = isAvailable ? "" : (
+                    course.unavailableReason || 
+                    (course.fromUserDepartment 
+                      ? "Cannot select from your department" 
+                      : course.enrolled_out 
+                        ? "Enrollment limit reached" 
+                        : "Not available"
+                    )
+                  );
+                  
+                  return (
+                    <SelectItem 
+                      key={course.id} 
+                      value={course.id}
+                      disabled={!isAvailable}
+                      className={!isAvailable ? "text-gray-400" : ""}
+                    >
+                      {course.course_name} ({course.course_code})
+                      {!isAvailable && (
+                        <span className="ml-2 text-xs text-amber-600">
+                          ({warningText})
+                        </span>
+                      )}
+                    </SelectItem>
+                  );
+                }) || []}
               </SelectContent>
             </Select>
           </div>

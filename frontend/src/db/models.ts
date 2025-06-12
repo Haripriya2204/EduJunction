@@ -36,6 +36,10 @@ export interface Course {
   groupType?: string; // PE or OE
   peGroupId?: number | null;
   oeGroupId?: number | null;
+  isAvailable?: boolean; // Whether the elective can be selected
+  unavailableReason?: string; // Reason why the course cannot be selected
+  enrolled_out?: boolean; // Whether the course has reached enrollment limit
+  fromUserDepartment?: boolean; // Whether the course is from user's department
   createdAt: Date;
   updatedAt: Date;
 }
