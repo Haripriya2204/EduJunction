@@ -19,11 +19,11 @@ import Courses from "./pages/dashboard/Courses";
 import GatePass from "./pages/dashboard/GatePass";
 import FeeSlip from "./pages/dashboard/FeeSlip";
 import Requests from "./pages/dashboard/Requests";
-import Electives from "./pages/dashboard/Electives";
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
 import Notifications from "./pages/dashboard/Notifications";
 import StudentRequests from "./pages/dashboard/StudentRequests";
 import Events from "./pages/dashboard/Events";
+import FeeReports from "./pages/dashboard/FeeReports";
 
 // Auth protection
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -70,6 +70,7 @@ const App = () => {
               <Route path="admin" element={<AdminDashboard />} />
               <Route path="student-requests" element={<StudentRequests />} />
               <Route path="events" element={<Events />} />
+              <Route path="fee-reports" element={<FeeReports />} />
             </Route>
 
             {/* Catch-all route */}

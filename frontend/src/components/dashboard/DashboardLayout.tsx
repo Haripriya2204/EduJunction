@@ -64,7 +64,8 @@ const DashboardLayout = () => {
         { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
         { path: "/dashboard/profile", label: "Profile", icon: <User className="h-5 w-5" /> },
         { path: "/dashboard/student-requests", label: "Student Requests", icon: <Clock className="h-5 w-5" /> },
-        { path: "/dashboard/events", label: "Events & Notifications", icon: <CalendarDays className="h-5 w-5" /> }
+        { path: "/dashboard/events", label: "Events & Notifications", icon: <CalendarDays className="h-5 w-5" /> },
+        { path: "/dashboard/fee-reports", label: "Fee Reports", icon: <FileText className="h-5 w-5" /> }
       ]
     : [
         { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
