@@ -5,6 +5,7 @@ import { Button } from "../ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { useToast } from "../ui/use-toast";
+import { authService } from "../../services/api";
 import { 
   Table, 
   TableBody, 
@@ -65,17 +66,27 @@ const FeeReportsSection = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("summary");
   const { toast } = useToast();
+  
+  // Get admin's department if they are a department admin
+  const adminDepartment = authService.getAdminDepartment();
+  const isDeptAdmin = authService.isDepartmentAdmin();
 
   // Fetch available semesters
   useEffect(() => {
     const fetchSemesters = async () => {
       try {
-        // Get distinct semesters from users table
-        const { data, error } = await supabase
+        // Build query based on admin type
+        let query = supabase
           .from('users')
           .select('semester')
-          .not('semester', 'is', null)
-          .order('semester');
+          .not('semester', 'is', null);
+        
+        // Filter by department if department admin
+        if (adminDepartment) {
+          query = query.eq('department', adminDepartment);
+        }
+        
+        const { data, error } = await query.order('semester');
 
         if (error) throw error;
 
@@ -101,7 +112,7 @@ const FeeReportsSection = () => {
     };
 
     fetchSemesters();
-  }, [toast]);
+  }, [toast, adminDepartment]);
 
   // Fetch report data when semester changes
   useEffect(() => {
@@ -111,11 +122,18 @@ const FeeReportsSection = () => {
       setLoading(true);
       try {
         // Get total count of students in the semester
-        const { data: totalData, error: totalError } = await supabase
+        let totalQuery = supabase
           .from('users')
           .select('id', { count: 'exact' })
           .eq('semester', selectedSemester)
           .eq('role', 'student');
+          
+        // Filter by department if department admin
+        if (adminDepartment) {
+          totalQuery = totalQuery.eq('department', adminDepartment);
+        }
+        
+        const { data: totalData, error: totalError } = await totalQuery;
 
         if (totalError) throw totalError;
 
@@ -124,24 +142,38 @@ const FeeReportsSection = () => {
         const statusCounts: Record<string, number> = {};
 
         for (const status of statuses) {
-          const { count, error } = await supabase
+          let statusQuery = supabase
             .from('users')
             .select('id', { count: 'exact' })
             .eq('semester', selectedSemester)
             .eq('role', 'student')
             .eq('fee_status', status);
+            
+          // Filter by department if department admin
+          if (adminDepartment) {
+            statusQuery = statusQuery.eq('department', adminDepartment);
+          }
+          
+          const { count, error } = await statusQuery;
 
           if (error) throw error;
           statusCounts[status] = count || 0;
         }
 
         // Count students who haven't uploaded (null or empty fee_status)
-        const { count: notUploadedCount, error: notUploadedError } = await supabase
+        let notUploadedQuery = supabase
           .from('users')
           .select('id', { count: 'exact' })
           .eq('semester', selectedSemester)
           .eq('role', 'student')
           .or('fee_status.is.null,fee_status.eq.');
+          
+        // Filter by department if department admin
+        if (adminDepartment) {
+          notUploadedQuery = notUploadedQuery.eq('department', adminDepartment);
+        }
+        
+        const { count: notUploadedCount, error: notUploadedError } = await notUploadedQuery;
 
         if (notUploadedError) throw notUploadedError;
 
@@ -160,12 +192,18 @@ const FeeReportsSection = () => {
         setReportData(report);
 
         // Also fetch detailed data for the table view
-        const { data: detailed, error: detailedError } = await supabase
+        let detailedQuery = supabase
           .from('users')
           .select('id, name, roll_no, email, department, fee_status, payment_mode, transaction_number, bank_name, fee_receipt_url, created_at, updated_at')
           .eq('semester', selectedSemester)
-          .eq('role', 'student')
-          .order('fee_status', { ascending: false });
+          .eq('role', 'student');
+          
+        // Filter by department if department admin
+        if (adminDepartment) {
+          detailedQuery = detailedQuery.eq('department', adminDepartment);
+        }
+        
+        const { data: detailed, error: detailedError } = await detailedQuery.order('fee_status', { ascending: false });
 
         if (detailedError) throw detailedError;
         setDetailedData(detailed as DetailedFeeData[]);
@@ -183,7 +221,7 @@ const FeeReportsSection = () => {
     };
 
     fetchReportData();
-  }, [selectedSemester, toast]);
+  }, [selectedSemester, toast, adminDepartment]);
 
   // Prepare chart data
   const getChartData = () => {
@@ -227,7 +265,9 @@ const FeeReportsSection = () => {
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Fee Receipt Reports</h2>
+        <h2 className="text-2xl font-bold">
+          {isDeptAdmin ? `${adminDepartment} Department - Fee Receipt Reports` : "Fee Receipt Reports"}
+        </h2>
         <div className="flex items-center space-x-2">
           <Select
             value={selectedSemester}

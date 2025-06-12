@@ -155,6 +155,21 @@ export const authService = {
     const user = authService.getCurrentUser();
     return user?.role === "admin";
   },
+
+  isDepartmentAdmin: (): boolean => {
+    const user = authService.getCurrentUser();
+    // Super admin has "Administration" department, dept admins have specific departments
+    return user?.role === "admin" && user?.department !== "Administration";
+  },
+
+  getAdminDepartment: (): string | null => {
+    const user = authService.getCurrentUser();
+    if (user?.role === "admin" && user?.department !== "Administration") {
+      return user.department;
+    }
+    // For super admin, return null to indicate access to all departments
+    return null;
+  },
 };
 
 // Helper to get auth headers
@@ -853,7 +868,10 @@ export const studentService = {
         'ece_courses',
         'mech_courses',
         'hsm_courses',
-        'aero_courses'
+        'aero_courses',
+        'csd_courses',
+        'csc_courses',
+        'eee_courses'
       ];
       
       // First try the user's department schema
@@ -992,7 +1010,10 @@ export const studentService = {
         'ece_courses',
         'mech_courses',
         'hsm_courses',
-        'aero_courses'
+        'aero_courses',
+        'csd_courses',
+        'csc_courses',
+        'eee_courses'
       ];
       
       let selectedCourse: OpenElectiveRecord | null = null;
@@ -1088,7 +1109,18 @@ export const adminService = {
   getRequestsByStatus: async (
     status: "pending" | "approved" | "rejected" | "on_hold"
   ): Promise<Request[]> => {
-    const response = await fetch(`/api/requests/department?status=${status}`, {
+    const user = authService.getCurrentUser();
+    const adminDept = authService.getAdminDepartment();
+    
+    // Create API endpoint with status filter
+    let endpoint = `/api/requests/department?status=${status}`;
+    
+    // Add department filter for department admins
+    if (adminDept) {
+      endpoint += `&department=${adminDept}`;
+    }
+    
+    const response = await fetch(endpoint, {
       headers: { ...getAuthHeaders() },
     });
     if (!response.ok) {
@@ -1098,7 +1130,18 @@ export const adminService = {
   },
 
   getAllRequests: async (): Promise<Request[]> => {
-    const response = await fetch("/api/requests/department", {
+    const user = authService.getCurrentUser();
+    const adminDept = authService.getAdminDepartment();
+    
+    // Create API endpoint
+    let endpoint = "/api/requests/department";
+    
+    // Add department filter for department admins
+    if (adminDept) {
+      endpoint += `?department=${adminDept}`;
+    }
+    
+    const response = await fetch(endpoint, {
       headers: { ...getAuthHeaders() },
     });
     if (!response.ok) {
