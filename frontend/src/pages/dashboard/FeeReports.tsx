@@ -5,7 +5,7 @@ import FeeReportsSection from "../../components/admin/FeeReportsSection";
 
 const FeeReports = () => {
   const navigate = useNavigate();
-  const isAdmin = authService.isAdmin();
+  const isAdmin = authService.isAdmin(); // This now checks for both admin and dept_admin
 
   // Redirect non-admin users
   useEffect(() => {
@@ -14,7 +14,7 @@ const FeeReports = () => {
     }
   }, [isAdmin, navigate]);
 
-  // Only render the component if user is admin
+  // Only render the component if user is admin or dept_admin
   if (!isAdmin) {
     return null;
   }
