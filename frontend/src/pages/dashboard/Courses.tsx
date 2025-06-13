@@ -50,6 +50,7 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 // import { selectElective, saveElectives } from '../../api'; // Temporarily comment out elective related imports
+import { supabase } from "../../lib/supabase";
 
 // Helper to get auth headers (still needed for some API calls, though studentService handles most)
 const getAuthHeaders = () => {
@@ -74,6 +75,20 @@ const AVAILABLE_SEMESTERS = [
   "IV-II",
 ];
 
+// Add this helper function at the top after imports
+const convertSemesterNumberToFormat = (semesterNumber: string): string => {
+  const num = parseInt(semesterNumber);
+  if (isNaN(num)) return "I-I"; // Default to first semester if invalid
+
+  const year = Math.ceil(num / 2);
+  const semester = num % 2 === 0 ? "II" : "I";
+
+  // Convert year to roman numerals
+  const romanYear = ["I", "II", "III", "IV"][year - 1] || "I";
+
+  return `${romanYear}-${semester}`;
+};
+
 const Courses = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedElectivesMap, setSelectedElectivesMap] = useState<
@@ -83,9 +98,7 @@ const Courses = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("mandatory");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [selectedSemester, setSelectedSemester] = useState<string>(
-    AVAILABLE_SEMESTERS[0]
-  );
+  const [selectedSemester, setSelectedSemester] = useState<string>("");
   const [availableElectives, setAvailableElectives] = useState<
     Record<string, Course[]>
   >({});
@@ -104,6 +117,37 @@ const Courses = () => {
     courseId: string;
     group: string;
   } | null>(null);
+
+  // Add this useEffect to fetch approved semester and set it
+  useEffect(() => {
+    const fetchApprovedSemester = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("approved_semester")
+          .eq("id", user?.id)
+          .single();
+
+        if (error) {
+          console.error("Error fetching approved semester:", error);
+          return;
+        }
+
+        if (data?.approved_semester) {
+          const formattedSemester = convertSemesterNumberToFormat(
+            data.approved_semester
+          );
+          setSelectedSemester(formattedSemester);
+        }
+      } catch (error) {
+        console.error("Error in fetchApprovedSemester:", error);
+      }
+    };
+
+    if (user?.id) {
+      fetchApprovedSemester();
+    }
+  }, [user?.id]);
 
   // Fetch courses on component mount or refresh
   useEffect(() => {
@@ -134,7 +178,8 @@ const Courses = () => {
       setSelectedElectivesMap(data.selectedElectivesMap || {});
     } catch (error: unknown) {
       console.error("Error fetching courses:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to fetch courses";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to fetch courses";
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -163,8 +208,10 @@ const Courses = () => {
       // Not an elective if the course code is not PCC or OEC
       const isPE = course.course_code === "PCC";
       const isOE = course.course_code === "OEC";
-      const nameHasElective = (course.course_name || "").toLowerCase().includes("elective");
-      
+      const nameHasElective = (course.course_name || "")
+        .toLowerCase()
+        .includes("elective");
+
       // Course is mandatory if it's not an elective by any measure
       return !(isPE || isOE || nameHasElective || course.isElective);
     });
@@ -175,8 +222,10 @@ const Courses = () => {
       // Check if this is an elective by course code or name
       const isPE = course.course_code === "PCC";
       const isOE = course.course_code === "OEC";
-      const nameHasElective = (course.course_name || "").toLowerCase().includes("elective");
-      
+      const nameHasElective = (course.course_name || "")
+        .toLowerCase()
+        .includes("elective");
+
       // Course is an elective if it matches any elective criteria
       return isPE || isOE || nameHasElective || course.isElective;
     });
@@ -226,7 +275,7 @@ const Courses = () => {
     try {
       // Determine if this is an open or professional elective
       const isOpenElective = courseName.toLowerCase().includes("open elective");
-      
+
       let options: Course[];
       if (isOpenElective) {
         console.log("Fetching open elective options for:", courseName);
@@ -235,9 +284,9 @@ const Courses = () => {
         console.log("Fetching professional elective options for:", courseName);
         options = await studentService.getElectiveOptions(courseName);
       }
-      
+
       console.log("Received elective options:", options);
-      
+
       setAvailableElectives((prev) => ({
         ...prev,
         [courseName]: options,
@@ -262,20 +311,21 @@ const Courses = () => {
     }
 
     console.log("Selected course for confirmation:", selectedCourse);
-    
+
     // Check if the course is available for selection
     if (selectedCourse.isAvailable === false) {
-      const reason = selectedCourse.unavailableReason || 
-        (selectedCourse.fromUserDepartment 
-          ? "You cannot select electives from your own department" 
-          : selectedCourse.enrolled_out 
-            ? "This course has reached its enrollment limit" 
-            : "This course is not available for selection");
-      
+      const reason =
+        selectedCourse.unavailableReason ||
+        (selectedCourse.fromUserDepartment
+          ? "You cannot select electives from your own department"
+          : selectedCourse.enrolled_out
+          ? "This course has reached its enrollment limit"
+          : "This course is not available for selection");
+
       toast.error(reason);
       return;
     }
-    
+
     setPendingElectiveSelection({
       courseId,
       group: currentElectiveGroup,
@@ -288,8 +338,10 @@ const Courses = () => {
 
     try {
       // Determine if this is an open or professional elective
-      const isOpenElective = pendingElectiveSelection.group.toLowerCase().includes("open elective");
-      
+      const isOpenElective = pendingElectiveSelection.group
+        .toLowerCase()
+        .includes("open elective");
+
       if (isOpenElective) {
         console.log("Selecting open elective:", pendingElectiveSelection);
         await studentService.selectOpenElective(
@@ -297,7 +349,10 @@ const Courses = () => {
           pendingElectiveSelection.courseId
         );
       } else {
-        console.log("Selecting professional elective:", pendingElectiveSelection);
+        console.log(
+          "Selecting professional elective:",
+          pendingElectiveSelection
+        );
         await studentService.selectElective(
           pendingElectiveSelection.courseId,
           pendingElectiveSelection.group
@@ -313,7 +368,8 @@ const Courses = () => {
         // Create new selected electives object with the new selection
         const updatedElectives: Record<string, string> = {
           ...selectedElectives,
-          [normalizeElectiveGroupName(pendingElectiveSelection.group)]: selectedCourse.course_code,
+          [normalizeElectiveGroupName(pendingElectiveSelection.group)]:
+            selectedCourse.course_code,
         };
         setSelectedElectives(updatedElectives);
       }
@@ -324,10 +380,7 @@ const Courses = () => {
       setPendingElectiveSelection(null);
 
       // Refresh all necessary data
-      await Promise.all([
-        loadAvailableElectives(),
-        fetchCourses(),
-      ]);
+      await Promise.all([loadAvailableElectives(), fetchCourses()]);
 
       // Force a complete refresh of the component
       setRefreshKey((prev) => prev + 1);
@@ -341,7 +394,8 @@ const Courses = () => {
   useEffect(() => {
     const loadSelectedElectives = async () => {
       try {
-        const selectedElectivesData = await studentService.getSelectedElectives();
+        const selectedElectivesData =
+          await studentService.getSelectedElectives();
         setSelectedElectives(selectedElectivesData);
       } catch (error: unknown) {
         console.error("Error loading selected electives:", error);
@@ -360,10 +414,10 @@ const Courses = () => {
 
       for (const group of electiveGroups) {
         console.log("Loading options for elective group:", group);
-        
+
         // Determine if this is an open or professional elective
         const isOpenElective = group.toLowerCase().includes("open elective");
-        
+
         let options: Course[];
         if (isOpenElective) {
           console.log("Fetching open elective options for:", group);
@@ -372,8 +426,11 @@ const Courses = () => {
           console.log("Fetching professional elective options for:", group);
           options = await studentService.getElectiveOptions(group);
         }
-        
-        console.log(`Received ${options.length} options for ${group}:`, options);
+
+        console.log(
+          `Received ${options.length} options for ${group}:`,
+          options
+        );
         electiveOptions[group] = options;
       }
 
@@ -397,23 +454,23 @@ const Courses = () => {
       const normalizedName = name
         .replace(/–/g, "-") // Replace en dash with regular hyphen
         .replace(/\s*-\s*/g, " - "); // Normalize whitespace around hyphens
-        
+
       // Extract the number/identifier (I, II, III) from the name
       const parts = normalizedName.split(" - ");
       if (parts.length >= 2) {
         return `OE-${parts[1]}`;
       }
-      
+
       // If we can't split, try to extract roman numeral
       const match = normalizedName.match(/[IVX]+$/);
       if (match) {
         return `OE-${match[0]}`;
       }
-      
+
       // Default for open electives
       return "OE-I";
     }
-    
+
     // For Professional Electives
     const normalizedName = name
       .replace(/–/g, "-") // Replace en dash with regular hyphen
@@ -479,18 +536,6 @@ const Courses = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-800">My Courses</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={selectedSemester} onValueChange={setSelectedSemester}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select Semester" />
-            </SelectTrigger>
-            <SelectContent>
-              {AVAILABLE_SEMESTERS.map((semester) => (
-                <SelectItem key={semester} value={semester}>
-                  Semester {semester}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Button
             variant="outline"
             onClick={refreshAllData}
@@ -502,18 +547,19 @@ const Courses = () => {
         </div>
       </div>
 
-      {feeStatus === "approved" ? (
-        <Card className="bg-green-50 border-green-200 mb-6 transition-all duration-300">
+      {!selectedSemester ? (
+        <Card className="bg-yellow-50 border-yellow-200 mb-6">
           <CardContent className="pt-6">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <p className="text-green-800 font-medium">
-                Fee payment verified. You have access to all your courses.
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
+              <p className="text-yellow-800 font-medium">
+                No approved semester found. Please submit your fee receipt for
+                approval.
               </p>
             </div>
           </CardContent>
         </Card>
-      ) : (
+      ) : feeStatus !== "approved" ? (
         <Card className="bg-yellow-50 border-yellow-200 mb-6 animate-pulse transition-all duration-300">
           <CardContent className="pt-6">
             <div className="flex flex-col gap-2">
@@ -540,6 +586,18 @@ const Courses = () => {
                   </a>
                 </Button>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-green-50 border-green-200 mb-6 transition-all duration-300">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <p className="text-green-800 font-medium">
+                Fee payment verified. You have access to all your courses for
+                Semester {selectedSemester}.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -739,19 +797,18 @@ const Courses = () => {
               <SelectContent>
                 {availableElectives[currentElectiveGroup]?.map((course) => {
                   const isAvailable = course.isAvailable !== false;
-                  const warningText = isAvailable ? "" : (
-                    course.unavailableReason || 
-                    (course.fromUserDepartment 
-                      ? "Cannot select from your department" 
-                      : course.enrolled_out 
-                        ? "Enrollment limit reached" 
-                        : "Not available"
-                    )
-                  );
-                  
+                  const warningText = isAvailable
+                    ? ""
+                    : course.unavailableReason ||
+                      (course.fromUserDepartment
+                        ? "Cannot select from your department"
+                        : course.enrolled_out
+                        ? "Enrollment limit reached"
+                        : "Not available");
+
                   return (
-                    <SelectItem 
-                      key={course.id} 
+                    <SelectItem
+                      key={course.id}
                       value={course.id}
                       disabled={!isAvailable}
                       className={!isAvailable ? "text-gray-400" : ""}

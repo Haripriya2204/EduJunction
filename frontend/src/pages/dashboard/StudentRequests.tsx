@@ -289,12 +289,38 @@ const StudentRequests = () => {
                     Fee Receipt
                   </h3>
                   <div className="mt-2 p-4 border rounded-md bg-gray-50">
-                    <div className="text-center">
-                      <FileText className="h-12 w-12 mx-auto text-gray-400" />
-                      <p className="mt-2 text-sm text-gray-600">
-                        Fee Receipt Submitted
-                      </p>
-                    </div>
+                    {selectedRequest.receipt_url ? (
+                      <div className="space-y-4">
+                        <div className="h-[400px] border rounded-md overflow-hidden">
+                          <embed
+                            src={selectedRequest.receipt_url}
+                            type="application/pdf"
+                            className="w-full h-full"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              handleDownload(
+                                selectedRequest.receipt_url!,
+                                selectedRequest.user?.rollNo || "receipt"
+                              )
+                            }
+                          >
+                            Download PDF
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <FileText className="h-12 w-12 mx-auto text-gray-400" />
+                        <p className="mt-2 text-sm text-gray-600">
+                          No fee receipt available
+                        </p>
+                      </div>
+                    )}
                     <div className="mt-4 text-left space-y-2">
                       {selectedRequest.semester && (
                         <div>
@@ -323,32 +349,6 @@ const StudentRequests = () => {
                         </div>
                       )}
                     </div>
-
-                    {selectedRequest.receipt_url && (
-                      <div className="flex gap-2 mt-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            handlePreview(selectedRequest.receipt_url!)
-                          }
-                        >
-                          Preview PDF
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() =>
-                            handleDownload(
-                              selectedRequest.receipt_url!,
-                              selectedRequest.user?.rollNo || "receipt"
-                            )
-                          }
-                        >
-                          Download PDF
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 </div>
 
