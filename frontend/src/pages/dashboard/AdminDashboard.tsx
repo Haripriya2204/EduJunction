@@ -69,7 +69,18 @@ const AdminDashboard = () => {
     const fetchData = async () => {
       try {
         // Fetch requests stats directly from Supabase
-        const requests = await adminSupabaseService.getAllRequestsSupabase();
+        let requests = await adminSupabaseService.getAllRequestsSupabase();
+
+        // Filter requests based on admin's department if they are a department admin
+        if (
+          currentUser?.role === "admin" &&
+          currentUser?.roll_no?.startsWith("ADMIN_")
+        ) {
+          const adminDepartment = currentUser.department;
+          requests = requests.filter(
+            (request) => request.user?.department === adminDepartment
+          );
+        }
 
         // Count requests by status
         const counts = {
@@ -86,7 +97,7 @@ const AdminDashboard = () => {
 
         setStats(counts);
 
-        // Fetch notifications created by this admin (this still uses the backend for now)
+        // Fetch notifications created by this admin
         const notifs = await adminService.getNotificationsCreatedByAdmin();
         setNotifications(notifs);
       } catch (error) {
@@ -97,15 +108,27 @@ const AdminDashboard = () => {
     };
 
     fetchData();
-  }, []);
+  }, [currentUser]);
 
   // Fetch fee slip requests when the component mounts or tab is active
   useEffect(() => {
     const fetchFeeSlipRequests = async () => {
       try {
         setFeeSlipLoading(true);
-        const pendingRequests =
+        let pendingRequests =
           await adminSupabaseService.getPendingFeeSlipRequests();
+
+        // Filter requests based on admin's department if they are a department admin
+        if (
+          currentUser?.role === "admin" &&
+          currentUser?.roll_no?.startsWith("ADMIN_")
+        ) {
+          const adminDepartment = currentUser.department;
+          pendingRequests = pendingRequests.filter(
+            (request) => request.user?.department === adminDepartment
+          );
+        }
+
         setFeeSlipRequests(pendingRequests);
         setFeeSlipError(null);
       } catch (err: any) {
@@ -121,7 +144,7 @@ const AdminDashboard = () => {
       }
     };
     fetchFeeSlipRequests();
-  }, []);
+  }, [currentUser]);
 
   const handleStatusUpdate = async (
     requestId: string,
@@ -166,7 +189,17 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Admin Dashboard</h1>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+          {currentUser?.role === "admin" &&
+            currentUser?.roll_no?.startsWith("ADMIN_") && (
+              <p className="text-sm text-gray-600 mt-1">
+                {currentUser.department} Department Administrator
+              </p>
+            )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>

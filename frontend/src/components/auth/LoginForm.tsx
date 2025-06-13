@@ -36,56 +36,44 @@ const LoginForm = () => {
       // Hardcoded super admin login for demo purposes
       if (data.username === "admin" && data.password === "admin") {
         // Bypass for super admin login
-        localStorage.setItem("currentUser", JSON.stringify({ 
-          role: "admin",
-          name: "Super Administrator",
-          email: "admin@edujunction.com",
-          department: "Administration"
-        }));
+        localStorage.setItem(
+          "currentUser",
+          JSON.stringify({
+            role: "admin",
+            name: "Super Administrator",
+            email: "admin@edujunction.com",
+            department: "Administration",
+          })
+        );
         toast("Super Admin login successful!");
         navigate("/dashboard");
         return;
       }
-      
-      // Check if this is a department admin login
-      if (data.username.startsWith("admin_") || data.username.includes("_admin")) {
-        try {
-          // Try to find a department admin account
-          const { data: adminUser, error: adminError } = await supabase
-            .from("users")
-            .select("*")
-            .eq("username", data.username)
-            .eq("role", "admin")
-            .not("department", "eq", "Administration") // Exclude super admin
-            .single();
-            
-          if (adminUser && adminUser.password === data.password) {
-            // Department admin login successful
-            localStorage.setItem("currentUser", JSON.stringify(adminUser));
-            toast.success(`${adminUser.department} Department Admin login successful!`);
-            navigate("/dashboard");
-            return;
-          } else if (adminError) {
-            console.error("Department admin lookup error:", adminError);
-            toast.error("Invalid department admin credentials");
-            setIsLoading(false);
-            return;
-          } else {
-            toast.error("Invalid username or password");
-            setIsLoading(false);
-            return;
-          }
-        } catch (error) {
-          console.error("Error during department admin login:", error);
-          toast.error("Failed to process login");
-          setIsLoading(false);
-          return;
-        }
+
+      // First check if this is an admin user
+      const { data: adminUser, error: adminError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("username", data.username)
+        .eq("role", "admin")
+        .single();
+
+      if (adminUser && adminUser.password === data.password) {
+        // Admin login successful
+        localStorage.setItem("currentUser", JSON.stringify(adminUser));
+        toast.success(
+          `${adminUser.department} Department Admin login successful!`
+        );
+        navigate("/dashboard");
+        return;
       }
 
-      // Regular student login
-      const result = await login({ rollNo: data.username, password: data.password });
-      
+      // If not an admin, proceed with regular student login
+      const result = await login({
+        rollNo: data.username,
+        password: data.password,
+      });
+
       if (!result.success) {
         toast.error(result.message);
         setIsLoading(false);
@@ -97,7 +85,8 @@ const LoginForm = () => {
       navigate("/dashboard");
     } catch (error: unknown) {
       console.error("Login error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to login";
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to login";
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -123,7 +112,10 @@ const LoginForm = () => {
               <FormItem>
                 <FormLabel>Username / Roll Number</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter username or roll number" {...field} />
+                  <Input
+                    placeholder="Enter username or roll number"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

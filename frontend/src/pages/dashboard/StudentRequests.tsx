@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { adminSupabaseService } from "../../services/adminSupabaseService";
+import { authService } from "../../services/api";
 import Modal from "../../components/ui/Modal";
 
 export interface AdminRequest {
@@ -69,11 +70,24 @@ const StudentRequests = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const currentUser = authService.getCurrentUser();
 
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      const data = await adminSupabaseService.getAllRequestsSupabase();
+      let data = await adminSupabaseService.getAllRequestsSupabase();
+
+      // Filter requests based on admin's department if they are a department admin
+      if (
+        currentUser?.role === "admin" &&
+        currentUser?.roll_no?.startsWith("ADMIN_")
+      ) {
+        const adminDepartment = currentUser.department;
+        data = data.filter(
+          (request) => request.user?.department === adminDepartment
+        );
+      }
+
       setRequests(data);
     } catch (error) {
       console.error("Error fetching requests:", error);
@@ -195,9 +209,17 @@ const StudentRequests = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-800">
-          Fee Receipt Approvals
-        </h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">
+            Fee Receipt Approvals
+          </h1>
+          {currentUser?.role === "admin" &&
+            currentUser?.roll_no?.startsWith("ADMIN_") && (
+              <p className="text-sm text-gray-600 mt-1">
+                Showing requests for {currentUser.department} department
+              </p>
+            )}
+        </div>
 
         <Button
           variant="outline"
