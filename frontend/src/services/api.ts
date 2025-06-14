@@ -16,119 +16,34 @@ connectToDatabase();
 export const authService = {
   login: async (username: string, password: string) => {
     try {
-      // Verify that username and password are the same (roll number)
-      if (username !== password && username !== "admin") {
-        throw new Error("Username and password must be your roll number");
+      // Admin bypass
+      if (username === "admin" && password === "admin") {
+        // ... existing admin bypass logic ...
       }
 
-      // Check if the student exists in the students table
-      const { data: student, error: studentError } = await supabase
-        .from("students")
+      // First, check if the user exists in the users table (by username or roll_no)
+      const { data: user, error: userError } = await supabase
+        .from("users")
         .select()
-        .eq("roll_number", username)
+        .or(`username.eq.${username},roll_no.eq.${username}`)
         .single();
 
-      if (studentError || !student) {
+      if (userError || !user) {
         throw new Error("Invalid roll number");
       }
 
-      // Try to sign in first
-      let { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email: student.email,
-          password: username, // Using roll number as password
-        });
-
-      // If sign in fails, try to sign up the user
-      if (authError) {
-        console.log("Sign in failed, attempting to sign up user...");
-        const { data: signUpData, error: signUpError } =
-          await supabase.auth.signUp({
-            email: student.email,
-            password: username,
-            options: {
-              data: {
-                roll_number: student.roll_number,
-                name: student.name,
-                department: student.branch,
-                semester: student.semester,
-                year: student.year,
-              },
-            },
-          });
-
-        if (signUpError) {
-          console.error("Sign up error:", signUpError);
-          throw new Error("Failed to create user account");
-        }
-
-        // Try to sign in again after sign up
-        const { data: signInData, error: signInError } =
-          await supabase.auth.signInWithPassword({
-            email: student.email,
-            password: username,
-          });
-
-        if (signInError) {
-          console.error("Sign in error after sign up:", signInError);
-          throw new Error("Failed to sign in after account creation");
-        }
-
-        authData = signInData;
-      }
-
-      console.log("Auth session:", authData.session);
-
-      // Check if user already exists in users table
-      const { data: existingUser, error: userError } = await supabase
-        .from("users")
-        .select()
-        .eq("id", authData.session?.user.id) // Check by auth user ID
-        .single();
-
-      let user;
-
-      if (!existingUser) {
-        // Create new user if doesn't exist, using auth user ID
-        const newUser = {
-          id: authData.session?.user.id, // Use auth user ID
-          username: student.roll_number,
-          name: student.name,
-          email: student.email,
-          password: student.roll_number, // Use roll number as password
-          department: student.branch,
-          role: "student",
-          roll_no: student.roll_number,
-          semester: student.semester,
-          year: student.year,
-        };
-
-        const { data: createdUser, error: createError } = await supabase
-          .from("users")
-          .insert(newUser)
-          .select()
-          .single();
-
-        if (createError) {
-          console.error("Create user error:", createError);
-          throw new Error("Failed to create user account");
-        }
-        user = createdUser;
-      } else {
-        // Verify password for existing user
-        if (existingUser.password !== username) {
-          throw new Error("Invalid roll number");
-        }
-        user = existingUser;
+      // Now check password
+      if (user.password !== password) {
+        throw new Error("Invalid password");
       }
 
       // Store user data in localStorage
       localStorage.setItem("currentUser", JSON.stringify(user));
-
       return user;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Login error:", error);
-      throw new Error(error.message || "Failed to login");
+      const errorMessage = error instanceof Error ? error.message : "Failed to login";
+      throw new Error(errorMessage);
     }
   },
 
@@ -333,9 +248,10 @@ export const studentService = {
         selectedElectivesMap
       );
       return { courses, selectedElectivesMap };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("getCourses: Final catch block error:", error);
-      throw new Error("Failed to fetch courses");
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch courses";
+      throw new Error(errorMessage);
     }
   },
 
@@ -537,9 +453,10 @@ export const studentService = {
       console.log(
         "Fee receipt record created and user profile updated successfully"
       );
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error uploading fee receipt:", error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload fee receipt";
+      throw new Error(errorMessage);
     }
   },
 
@@ -706,9 +623,10 @@ export const studentService = {
       }
 
       return data as Course[];
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching elective options:", error);
-      throw new Error(`Failed to fetch elective options: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch elective options";
+      throw new Error(errorMessage);
     }
   },
 
@@ -777,9 +695,10 @@ export const studentService = {
       if (updateError) {
         throw updateError;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error selecting elective:", error);
-      throw new Error(`Failed to select elective: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : "Failed to select elective";
+      throw new Error(errorMessage);
     }
   },
 
@@ -801,9 +720,10 @@ export const studentService = {
       }
 
       return data?.selected_electives || {};
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching selected electives:", error);
-      throw new Error(`Failed to fetch selected electives: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch selected electives";
+      throw new Error(errorMessage);
     }
   },
 
@@ -826,9 +746,10 @@ export const studentService = {
       }
 
       return data.map((row) => row.semester);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching available semesters:", error);
-      throw new Error(`Failed to fetch available semesters: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : "Failed to fetch available semesters";
+      throw new Error(errorMessage);
     }
   },
 
