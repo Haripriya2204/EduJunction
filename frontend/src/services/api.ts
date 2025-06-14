@@ -588,40 +588,21 @@ export const studentService = {
     if (!user) {
       throw new Error("User not authenticated");
     }
-
-    console.log("User object in getCourses:", user);
-
-    const { department, year, semester } = user;
-    const schemaName = `${department.toLowerCase()}_courses`;
-    const tableName = `${year}-${semester}`;
-
-    // Extract the elective group from course name (e.g., "Professional Elective - III" -> "PE-III")
-    console.log("Course name:", courseName);
-
-    // Replace en dash with regular hyphen and normalize whitespace around dashes
-    const normalizedName = courseName
-      .replace(/–/g, "-") // Replace en dash with regular hyphen
-      .replace(/\s*-\s*/g, " - "); // Normalize whitespace around hyphens
-
-    console.log("Normalized name:", normalizedName);
-
-    const electiveGroup = normalizedName.includes("Lab")
-      ? normalizedName.split(" - ")[1].replace("Lab", "LAB") // For PE-III-LAB
-      : `PE-${normalizedName.split(" - ")[1]}`; // For regular electives
-
-    console.log("Elective group:", electiveGroup);
-
     try {
+      const { department, year, semester } = user;
+      const schemaName = `${department.toLowerCase()}_courses`;
+      const normalizedName = courseName.replace(/–/g, "-").replace(/\s*-\s*/g, " - ");
+      const isLab = /lab/i.test(normalizedName);
+      const electiveGroup = isLab ? "LAB" : `PE-${normalizedName.split(" - ")[1]}`;
       const { data, error } = await supabase
         .schema(`${schemaName}`)
         .from(`${electiveGroup}`)
         .select("*");
-
       if (error) {
         console.error("Error fetching elective options:", error);
-        throw error;
+        const errorMessage = error instanceof Error ? error.message : "Failed to fetch elective options";
+        throw new Error(errorMessage);
       }
-
       return data as Course[];
     } catch (error: unknown) {
       console.error("Error fetching elective options:", error);
@@ -638,63 +619,32 @@ export const studentService = {
     if (!user) {
       throw new Error("User not authenticated");
     }
-
     try {
-      // First, check if user already has selected electives
-      const { data: existingElectives, error: fetchError } = await supabase
-        .from("users")
-        .select("selected_electives")
-        .eq("id", user.id)
-        .single();
-
-      if (fetchError && fetchError.code !== "PGRST116") {
-        // PGRST116 is "no rows returned"
-        throw fetchError;
-      }
-
-      // Initialize or update selected_electives
       const { department, year, semester } = user;
       const schemaName = `${department.toLowerCase()}_courses`;
-      const tableName = `${year}-${semester}`;
-
-      const inputElectiveGroup: string = electiveGroup;
-      const normalizedName: string = inputElectiveGroup
-        .replace(/–/g, "-") // Replace en dash with regular hyphen
-        .replace(/\s*-\s*/g, " - "); // Normalize whitespace around hyphens
-
-      console.log("Normalized name:", normalizedName);
-
-      const finalElectiveGroup: string = normalizedName.includes("Lab")
-        ? normalizedName.split(" - ")[1].replace("Lab", "LAB") // For PE-III-LAB
-        : `PE-${normalizedName.split(" - ")[1]}`;
-
+      const normalizedName = electiveGroup.replace(/–/g, "-").replace(/\s*-\s*/g, " - ");
+      const isLab = /lab/i.test(normalizedName);
+      const finalElectiveGroup = isLab ? "LAB" : `PE-${normalizedName.split(" - ")[1]}`;
       const { data: allCourses } = await supabase
         .schema(schemaName)
         .from(finalElectiveGroup)
         .select("id, course_code")
         .eq("id", courseId)
         .single();
-
-      if (fetchError || !allCourses) {
-        console.log(courseId);
-        console.log(finalElectiveGroup);
-        throw new Error(
-          "Failed to retrieve course_code for the selected elective"
-        );
+      if (!allCourses) {
+        throw new Error("Failed to retrieve course_code for the selected elective");
       }
-
+      const { data: existingElectives } = await supabase
+        .from("users")
+        .select("selected_electives")
+        .eq("id", user.id)
+        .single();
       const selectedElectives = existingElectives?.selected_electives || {};
       selectedElectives[finalElectiveGroup] = allCourses.course_code;
-
-      // Update user's selected electives
-      const { error: updateError } = await supabase
+      await supabase
         .from("users")
         .update({ selected_electives: selectedElectives })
         .eq("id", user.id);
-
-      if (updateError) {
-        throw updateError;
-      }
     } catch (error: unknown) {
       console.error("Error selecting elective:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to select elective";
@@ -877,13 +827,18 @@ export const studentService = {
         return [];
       }
 
-      console.log(
-        `getOpenElectiveOptions: Successfully fetched ${data.length} raw course(s):`,
-        data
-      );
+      // Deduplicate by id (or course_code if id is missing)
+      const uniqueCoursesMap = new Map();
+      for (const course of data) {
+        const key = course.id?.toString() || course.course_code;
+        if (!uniqueCoursesMap.has(key)) {
+          uniqueCoursesMap.set(key, course);
+        }
+      }
+      const uniqueCourses = Array.from(uniqueCoursesMap.values());
 
       // Instead of filtering, mark courses as unavailable
-      return data.map((course) => {
+      return uniqueCourses.map((course) => {
         // Check department against user's department (case insensitive)
         const isFromUserDepartment =
           course.offering_department &&
