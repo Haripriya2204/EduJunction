@@ -43,11 +43,13 @@ import {
   UserPlus,
   ChevronLeft,
   ChevronRight,
+  Download,
 } from "lucide-react";
 import { format } from "date-fns";
 import { adminSupabaseService } from "../../services/adminSupabaseService";
 import { authService } from "../../services/api";
 import Modal from "../../components/ui/Modal";
+import * as XLSX from "xlsx";
 
 export interface AdminRequest {
   id: string;
@@ -257,6 +259,82 @@ const StudentRequests = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDownloadExcel = (data: AdminRequest[]) => {
+    // Prepare data for Excel
+    const excelData = data.map((request) => ({
+      "Roll Number": request.user?.rollNo || "N/A",
+      Name: request.user?.name || "N/A",
+      Department: request.user?.department || "N/A",
+      Status: request.status.charAt(0).toUpperCase() + request.status.slice(1),
+      "Payment Mode": request.payment_mode || "N/A",
+      "Transaction Number": request.transaction_number || "N/A",
+      "Bank Name": request.bank_name || "N/A",
+      "Submitted Date": request.uploaded_at
+        ? format(new Date(request.uploaded_at), "MMM d, yyyy")
+        : "N/A",
+      "Last Updated": request.reviewed_at
+        ? format(new Date(request.reviewed_at), "MMM d, yyyy")
+        : "N/A",
+    }));
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Fee Receipts");
+
+    // Generate Excel file
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `fee_receipts_${activeTab}_${format(
+      new Date(),
+      "yyyy-MM-dd"
+    )}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadUnregisteredExcel = (data: Student[]) => {
+    // Prepare data for Excel
+    const excelData = data.map((student) => ({
+      "Roll Number": student.roll_number,
+      Name: student.name,
+      Department: student.department,
+      Year: student.year,
+      Semester: student.semester,
+      Email: student.email,
+      Status: "Not Registered",
+    }));
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Unregistered Students");
+
+    // Generate Excel file
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `unregistered_students_${format(
+      new Date(),
+      "yyyy-MM-dd"
+    )}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -628,10 +706,22 @@ const StudentRequests = () => {
 
     return (
       <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center">
-          <UserPlus className="h-5 w-5 mr-2" />
-          Unregistered Students
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold flex items-center">
+            <UserPlus className="h-5 w-5 mr-2" />
+            Unregistered Students
+          </h3>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              handleDownloadUnregisteredExcel(unregisteredStudents)
+            }
+            className="transition-colors duration-200"
+          >
+            <Download className="h-4 w-4 mr-1" /> Download Excel
+          </Button>
+        </div>
         {paginatedStudents.map((student) => (
           <Card
             key={student.roll_number}
@@ -720,10 +810,24 @@ const StudentRequests = () => {
 
     return (
       <div className="mt-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center">
-          <FileText className="h-5 w-5 mr-2" />
-          Fee Receipt Requests
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold flex items-center">
+            <FileText className="h-5 w-5 mr-2" />
+            Fee Receipt Requests
+          </h3>
+          {(activeTab === "pending" ||
+            activeTab === "approved" ||
+            activeTab === "rejected") && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDownloadExcel(filteredRequests)}
+              className="transition-colors duration-200"
+            >
+              <Download className="h-4 w-4 mr-1" /> Download Excel
+            </Button>
+          )}
+        </div>
         {paginatedRequests.map((request) => (
           <Card
             key={request.id}
