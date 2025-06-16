@@ -44,12 +44,23 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Mail,
 } from "lucide-react";
 import { format } from "date-fns";
 import { adminSupabaseService } from "../../services/adminSupabaseService";
 import { authService } from "../../services/api";
 import Modal from "../../components/ui/Modal";
 import * as XLSX from "xlsx";
+import emailjs from "@emailjs/browser";
+import { Textarea } from "../../components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
 
 export interface AdminRequest {
   id: string;
@@ -100,6 +111,15 @@ const StudentRequests = () => {
   const [showModal, setShowModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const currentUser = authService.getCurrentUser();
+  const [rejectionComment, setRejectionComment] = useState("");
+  const [showRejectionDialog, setShowRejectionDialog] = useState(false);
+  const [selectedRequestForRejection, setSelectedRequestForRejection] =
+    useState<AdminRequest | null>(null);
+
+  // Initialize EmailJS
+  useEffect(() => {
+    emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "");
+  }, []);
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -141,24 +161,122 @@ const StudentRequests = () => {
     setCurrentPage(1); // Reset to first page when tab changes
   }, [activeTab, selectedYear]);
 
+  const sendEmailNotification = async (
+    request: AdminRequest,
+    status: string,
+    comment?: string
+  ) => {
+    if (!request.user?.email) {
+      console.error("No email address found for student");
+      toast.error("Cannot send email: No email address found for student");
+      return;
+    }
+
+    // Format the status for better readability
+    const formattedStatus = status.charAt(0).toUpperCase() + status.slice(1);
+
+    // Create the email body with proper formatting
+    const emailBody = `
+Dear ${request.user.name},
+
+Your fee receipt has been ${formattedStatus}.
+
+${comment ? `Reason for rejection: ${comment}` : ""}
+
+Department: ${request.user.department}
+Roll Number: ${request.user.rollNo}
+Date: ${format(new Date(), "MMM d, yyyy")}
+
+Please contact your department administrator if you have any questions.
+
+Best regards,
+EduJunction Team
+    `.trim();
+
+    const templateParams = {
+      to_email: request.user.email,
+      to_name: request.user.name,
+      subject: `Fee Receipt ${formattedStatus} - ${request.user.rollNo}`,
+      message: emailBody,
+    };
+
+    try {
+      const response = await emailjs.send(
+        import.meta.env.VITE_EMAILJS_SERVICE_ID || "",
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID || "",
+        templateParams
+      );
+
+      if (response.status === 200) {
+        toast.success("Email notification sent successfully");
+      } else {
+        throw new Error(`EmailJS returned status ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Error sending email:", error);
+      toast.error("Failed to send email notification");
+    }
+  };
+
+  const handleRejectWithComment = async () => {
+    if (!selectedRequestForRejection) return;
+
+    setProcessing(selectedRequestForRejection.id);
+    try {
+      await adminSupabaseService.updateRequestStatus(
+        selectedRequestForRejection.id,
+        "rejected",
+        rejectionComment
+      );
+
+      await sendEmailNotification(
+        selectedRequestForRejection,
+        "rejected",
+        rejectionComment
+      );
+
+      toast("Request rejected");
+      fetchRequests();
+      setShowRejectionDialog(false);
+      setRejectionComment("");
+      setSelectedRequestForRejection(null);
+
+      if (detailsOpen) {
+        setDetailsOpen(false);
+      }
+    } catch (error) {
+      console.error("Error rejecting request:", error);
+      toast("Failed to reject request");
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   const handleUpdateStatus = async (
     requestId: string,
     status: "approved" | "rejected" | "on_hold"
   ) => {
+    if (status === "rejected") {
+      const request = requests.find((r) => r.id === requestId);
+      if (request) {
+        setSelectedRequestForRejection(request);
+        setShowRejectionDialog(true);
+      }
+      return;
+    }
+
     setProcessing(requestId);
-    console.log(
-      `Attempting to update request ${requestId} to status: ${status}`
-    );
     try {
       await adminSupabaseService.updateRequestStatus(requestId, status);
-      toast(`Request ${status.replace("_", " ")}`);
-      console.log(
-        `Successfully updated request ${requestId} to status: ${status}`
-      );
 
-      // If approving a fee slip request, notify the user
       const request = requests.find((r) => r.id === requestId);
-      if (request?.type === "feeslip" && status === "approved") {
+      if (request) {
+        await sendEmailNotification(request, status);
+      }
+
+      toast(`Request ${status.replace("_", " ")}`);
+
+      if (status === "approved") {
         toast("Fee slip approved. Student now has access to courses.");
       }
 
@@ -643,6 +761,48 @@ const StudentRequests = () => {
           </div>
         </Modal>
       )}
+
+      {/* Rejection Dialog */}
+      <Dialog open={showRejectionDialog} onOpenChange={setShowRejectionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Fee Receipt</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this fee receipt. This will
+              be included in the email sent to the student.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Textarea
+              placeholder="Enter rejection reason..."
+              value={rejectionComment}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                setRejectionComment(e.target.value)
+              }
+              className="min-h-[100px]"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRejectionDialog(false);
+                setRejectionComment("");
+                setSelectedRequestForRejection(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRejectWithComment}
+              disabled={!rejectionComment.trim() || !!processing}
+            >
+              {processing ? "Rejecting..." : "Reject"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 

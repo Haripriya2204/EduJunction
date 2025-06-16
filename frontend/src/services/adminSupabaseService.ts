@@ -159,29 +159,28 @@ export const adminSupabaseService = {
 
   async updateRequestStatus(
     requestId: string,
-    newStatus: "approved" | "rejected" | "on_hold"
-  ) {
-    console.log(
-      `[adminSupabaseService] Attempting to update user ${requestId} fee_status to: ${newStatus}`
-    );
+    status: string,
+    rejectionComment?: string
+  ): Promise<void> {
+    const updateData: any = {
+      fee_status: status,
+      reviewed_at: new Date().toISOString(),
+    };
+
+    // Only add rejection_comment if status is rejected and comment is provided
+    if (status === "rejected" && rejectionComment) {
+      updateData.rejection_comment = rejectionComment;
+    }
+
     const { error } = await supabase
       .from("users")
-      .update({
-        fee_status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", requestId);
 
     if (error) {
-      console.error(
-        `[adminSupabaseService] Error updating user ${requestId} fee_status:`,
-        error
-      );
+      console.error("Error updating request status:", error);
       throw error;
     }
-    console.log(
-      `[adminSupabaseService] Successfully updated user ${requestId} fee_status to: ${newStatus}`
-    );
   },
 
   async getUnregisteredStudents(
