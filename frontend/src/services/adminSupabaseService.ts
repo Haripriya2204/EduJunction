@@ -30,6 +30,15 @@ interface User {
   offering_department?: string;
 }
 
+export interface Student {
+  roll_number: string;
+  name: string;
+  year: number;
+  semester: number;
+  email: string;
+  department: string;
+}
+
 export interface AdminRequest {
   id: string;
   type: string;
@@ -51,8 +60,8 @@ export interface AdminRequest {
 }
 
 export const adminSupabaseService = {
-  async getAllRequestsSupabase(): Promise<AdminRequest[]> {
-    const { data, error } = await supabase
+  async getAllRequestsSupabase(year?: string): Promise<AdminRequest[]> {
+    let query = supabase
       .from("users")
       .select(
         `
@@ -67,10 +76,18 @@ export const adminSupabaseService = {
         transaction_number,
         bank_name,
         fee_receipt_url,
-        created_at
+        created_at,
+        year
       `
       )
       .order("created_at", { ascending: false });
+
+    // Add year filter if specified
+    if (year && year !== "all") {
+      query = query.eq("year", year);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -164,6 +181,37 @@ export const adminSupabaseService = {
     }
     console.log(
       `[adminSupabaseService] Successfully updated user ${requestId} fee_status to: ${newStatus}`
+    );
+  },
+
+  async getUnregisteredStudents(
+    department: string,
+    year?: string
+  ): Promise<Student[]> {
+    const { data: registeredUsers, error: userError } = await supabase
+      .from("users")
+      .select("roll_no");
+
+    if (userError) throw userError;
+
+    const registeredSet = new Set(registeredUsers.map((u) => u.roll_no));
+
+    let query = supabase
+      .from("students")
+      .select("*")
+      .eq("department", department); // Department filtering at query level
+
+    // Add year filter if specified
+    if (year && year !== "all") {
+      query = query.eq("year", year);
+    }
+
+    const { data: students, error: studentError } = await query;
+
+    if (studentError) throw studentError;
+
+    return students.filter(
+      (student) => !registeredSet.has(student.roll_number)
     );
   },
 };

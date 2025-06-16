@@ -54,6 +54,7 @@ export const authService = {
                 semester: student.semester,
                 year: student.year,
               },
+              emailRedirectTo: `${window.location.origin}/auth/callback`,
             },
           });
 
@@ -61,6 +62,9 @@ export const authService = {
           console.error("Sign up error:", signUpError);
           throw new Error("Failed to create user account");
         }
+
+        // Wait a moment for the sign-up to complete
+        await new Promise((resolve) => setTimeout(resolve, 1000));
 
         // Try to sign in again after sign up
         const { data: signInData, error: signInError } =
@@ -96,11 +100,14 @@ export const authService = {
           name: student.name,
           email: student.email,
           password: student.roll_number, // Use roll number as password
-          department: student.branch,
+          department: student.branch || student.department || "Unknown", // Fallback to department if branch is not available
           role: "student",
           roll_no: student.roll_number,
           semester: student.semester,
           year: student.year,
+          fee_status: "not_uploaded", // Set initial fee status
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         };
 
         const { data: createdUser, error: createError } = await supabase
