@@ -21,7 +21,7 @@ const Home = () => {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <a href="/" className="flex items-center text-edu-primary">
             <BookUser className="h-8 w-8 mr-2" />
-            <span className="text-xl font-bold">Edu Junction</span>
+            <span className="text-xl font-bold">MLRIT ACH</span>
           </a>
           
           <div className="flex space-x-4">
@@ -102,7 +102,7 @@ const Home = () => {
             <div className="mb-4 md:mb-0">
               <a href="/" className="flex items-center text-white">
                 <BookUser className="h-6 w-6 mr-2" />
-                <span className="text-lg font-bold">Edu Junction</span>
+                <span className="text-lg font-bold">MLRIT ACH</span>
               </a>
             </div>
             
@@ -115,7 +115,7 @@ const Home = () => {
           </div>
           
           <div className="mt-8 pt-8 border-t border-gray-700 text-center text-sm text-gray-400">
-            <p>&copy; {new Date().getFullYear()} Edu Junction. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} MLRIT ACH. All rights reserved.</p>
           </div>
         </div>
       </footer>
