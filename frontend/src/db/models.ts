@@ -18,6 +18,7 @@ export interface User {
   role: "student" | "admin";
   position: string;
   profilePicture?: string; // Added profile picture field
+  is_first_login?: boolean; // Added first login flag
   createdAt: Date;
   updatedAt: Date;
 }
@@ -99,7 +100,8 @@ export interface OpenElective {
 }
 
 // List of detained students (comma-separated roll numbers)
-export const DETAINED_STUDENTS = "23R21A12B3,2020CS002,2020CS003,2020CS004,2020CS005";
+export const DETAINED_STUDENTS =
+  "23R21A12B3,2020CS002,2020CS003,2020CS004,2020CS005";
 
 /**
  * SQLite table creation statements - for reference only

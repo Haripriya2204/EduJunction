@@ -17,9 +17,13 @@ import { Button } from "../ui/button";
 import { loginSchema, LoginFormData } from "../../lib/validation";
 import { login } from "../../services/auth";
 import { LogIn } from "lucide-react";
+import ChangePasswordForm from "./ChangePasswordForm";
+import { User } from "../../db/models";
 
 const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
   const form = useForm<LoginFormData>({
@@ -80,6 +84,14 @@ const LoginForm = () => {
         return;
       }
 
+      // Check if this is the first login
+      if (result.user?.is_first_login) {
+        setCurrentUser(result.user);
+        setShowChangePassword(true);
+        return;
+      }
+
+      // Store user data and proceed to dashboard
       localStorage.setItem("currentUser", JSON.stringify(result.user));
       toast.success("Login successful!");
       navigate("/dashboard");
@@ -92,6 +104,24 @@ const LoginForm = () => {
       setIsLoading(false);
     }
   };
+
+  const handlePasswordChangeSuccess = () => {
+    // Update the user in localStorage with the new password
+    if (currentUser) {
+      const updatedUser = { ...currentUser, is_first_login: false };
+      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+      navigate("/dashboard");
+    }
+  };
+
+  if (showChangePassword && currentUser) {
+    return (
+      <ChangePasswordForm
+        userId={currentUser.id}
+        onSuccess={handlePasswordChangeSuccess}
+      />
+    );
+  }
 
   return (
     <div className="w-full max-w-md mx-auto p-6 edu-card animate-fade-in">

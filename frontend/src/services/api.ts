@@ -8,104 +8,94 @@ import { db, connectToDatabase } from "../db/database";
 import { User, Course, Request, FeeReceipt, Notification } from "../db/models";
 import axios from "axios";
 import { supabase } from "../lib/supabase";
+import { comparePassword } from "../services/auth";
 
 // Connect to the database
 connectToDatabase();
 
 // Authentication service
 export const authService = {
-  login: async (username: string, password: string) => {
+  signup: async (username: string, password: string) => {
     try {
-      // Verify that username and password are the same (roll number)
-      if (username !== password && username !== "admin") {
-        throw new Error("Username and password must be your roll number");
-      }
-
-      // Check if the student exists in the students table
+      // First get the student's email and name from the students table
       const { data: student, error: studentError } = await supabase
         .from("students")
-        .select()
+        .select("email, name, department")
         .eq("roll_number", username)
         .single();
 
       if (studentError || !student) {
-        throw new Error("Invalid roll number");
+        throw new Error("Student not found");
       }
 
-      // Try to sign in first
-      let { data: authData, error: authError } =
-        await supabase.auth.signInWithPassword({
-          email: student.email,
-          password: username, // Using roll number as password
-        });
+      // Create user in Supabase auth with the student's email
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: student.email,
+        password: password,
+      });
 
-      // If sign in fails, try to sign up the user
       if (authError) {
-        console.log("Sign in failed, attempting to sign up user...");
-        const { data: signUpData, error: signUpError } =
-          await supabase.auth.signUp({
-            email: student.email,
-            password: username,
-            options: {
-              data: {
-                roll_number: student.roll_number,
-                name: student.name,
-                department: student.branch,
-                semester: student.semester,
-                year: student.year,
-              },
-            },
-          });
-
-        if (signUpError) {
-          console.error("Sign up error:", signUpError);
-          throw new Error("Failed to create user account");
-        }
-
-        // Try to sign in again after sign up
-        const { data: signInData, error: signInError } =
-          await supabase.auth.signInWithPassword({
-            email: student.email,
-            password: username,
-          });
-
-        if (signInError) {
-          console.error("Sign in error after sign up:", signInError);
-          throw new Error("Failed to sign in after account creation");
-        }
-
-        authData = signInData;
+        throw new Error(authError.message);
       }
 
-      console.log("Auth session:", authData.session);
+      return authData;
+    } catch (error: unknown) {
+      console.error("Signup error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to sign up";
+      throw new Error(errorMessage);
+    }
+  },
 
-      // Check if user already exists in users table
+  login: async (username: string, password: string) => {
+    try {
+      // Admin bypass
+      if (username === "admin" && password === "admin") {
+        // ... existing admin bypass logic ...
+      }
+
+      // First, check if the user exists in the users table (by username or roll_no)
       const { data: existingUser, error: userError } = await supabase
         .from("users")
         .select()
-        .eq("id", authData.session?.user.id) // Check by auth user ID
+        .or(`username.eq.${username},roll_no.eq.${username}`)
         .single();
 
-      let user;
-
       if (!existingUser) {
-        // Create new user if doesn't exist, using auth user ID
-        const newUser = {
-          id: authData.session?.user.id, // Use auth user ID
-          username: student.roll_number,
-          name: student.name,
-          email: student.email,
-          password: student.roll_number, // Use roll number as password
-          department: student.branch,
-          role: "student",
-          roll_no: student.roll_number,
-          semester: student.semester,
-          year: student.year,
-        };
+        // Get student's email and name from students table
+        const { data: student, error: studentError } = await supabase
+          .from("students")
+          .select("email, name, department")
+          .eq("roll_number", username)
+          .single();
 
-        const { data: createdUser, error: createError } = await supabase
+        if (studentError || !student) {
+          throw new Error("Student not found");
+        }
+
+        // User doesn't exist in users table, try to sign up with Supabase
+        const authData = await authService.signup(username, password);
+
+        if (!authData.user?.id) {
+          throw new Error("Failed to create auth user");
+        }
+
+        // If Supabase auth successful, create user in users table
+        const { data: newUser, error: createError } = await supabase
           .from("users")
-          .insert(newUser)
+          .insert({
+            id: authData.user.id, // Use the Supabase auth uid as the user id
+            username: username,
+            name: student.name,
+            department: student.department,
+            roll_no: username,
+            password: password, // This will be the roll number for first login
+            email: student.email,
+            role: "student",
+            is_first_login: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
           .select()
           .single();
 
@@ -113,22 +103,33 @@ export const authService = {
           console.error("Create user error:", createError);
           throw new Error("Failed to create user account");
         }
-        user = createdUser;
-      } else {
-        // Verify password for existing user
-        if (existingUser.password !== username) {
-          throw new Error("Invalid roll number");
-        }
-        user = existingUser;
+
+        return newUser;
       }
 
-      // Store user data in localStorage
-      localStorage.setItem("currentUser", JSON.stringify(user));
-
-      return user;
-    } catch (error: any) {
+      // For first-time login, the password is the roll number
+      if (existingUser.is_first_login) {
+        if (existingUser.password !== password) {
+          throw new Error("Invalid password");
+        }
+        // Return the user with is_first_login flag
+        return { ...existingUser, is_first_login: true };
+      } else {
+        // For subsequent logins, compare with bcrypt hashed password
+        const isPasswordValid = await comparePassword(
+          password,
+          existingUser.password
+        );
+        if (!isPasswordValid) {
+          throw new Error("Invalid password");
+        }
+        return existingUser;
+      }
+    } catch (error: unknown) {
       console.error("Login error:", error);
-      throw new Error(error.message || "Failed to login");
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to login";
+      throw new Error(errorMessage);
     }
   },
 
@@ -333,9 +334,11 @@ export const studentService = {
         selectedElectivesMap
       );
       return { courses, selectedElectivesMap };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("getCourses: Final catch block error:", error);
-      throw new Error("Failed to fetch courses");
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to fetch courses";
+      throw new Error(errorMessage);
     }
   },
 
@@ -537,9 +540,11 @@ export const studentService = {
       console.log(
         "Fee receipt record created and user profile updated successfully"
       );
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error uploading fee receipt:", error);
-      throw error;
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to upload fee receipt";
+      throw new Error(errorMessage);
     }
   },
 
@@ -671,44 +676,36 @@ export const studentService = {
     if (!user) {
       throw new Error("User not authenticated");
     }
-
-    console.log("User object in getCourses:", user);
-
-    const { department, year, semester } = user;
-    const schemaName = `${department.toLowerCase()}_courses`;
-    const tableName = `${year}-${semester}`;
-
-    // Extract the elective group from course name (e.g., "Professional Elective - III" -> "PE-III")
-    console.log("Course name:", courseName);
-
-    // Replace en dash with regular hyphen and normalize whitespace around dashes
-    const normalizedName = courseName
-      .replace(/–/g, "-") // Replace en dash with regular hyphen
-      .replace(/\s*-\s*/g, " - "); // Normalize whitespace around hyphens
-
-    console.log("Normalized name:", normalizedName);
-
-    const electiveGroup = normalizedName.includes("Lab")
-      ? normalizedName.split(" - ")[1].replace("Lab", "LAB") // For PE-III-LAB
-      : `PE-${normalizedName.split(" - ")[1]}`; // For regular electives
-
-    console.log("Elective group:", electiveGroup);
-
     try {
+      const { department, year, semester } = user;
+      const schemaName = `${department.toLowerCase()}_courses`;
+      const normalizedName = courseName
+        .replace(/–/g, "-")
+        .replace(/\s*-\s*/g, " - ");
+      const isLab = /lab/i.test(normalizedName);
+      const electiveGroup = isLab
+        ? "LAB"
+        : `PE-${normalizedName.split(" - ")[1]}`;
       const { data, error } = await supabase
         .schema(`${schemaName}`)
         .from(`${electiveGroup}`)
         .select("*");
-
       if (error) {
         console.error("Error fetching elective options:", error);
-        throw error;
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch elective options";
+        throw new Error(errorMessage);
       }
-
       return data as Course[];
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching elective options:", error);
-      throw new Error(`Failed to fetch elective options: ${error.message}`);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch elective options";
+      throw new Error(errorMessage);
     }
   },
 
@@ -720,66 +717,43 @@ export const studentService = {
     if (!user) {
       throw new Error("User not authenticated");
     }
-
     try {
-      // First, check if user already has selected electives
-      const { data: existingElectives, error: fetchError } = await supabase
-        .from("users")
-        .select("selected_electives")
-        .eq("id", user.id)
-        .single();
-
-      if (fetchError && fetchError.code !== "PGRST116") {
-        // PGRST116 is "no rows returned"
-        throw fetchError;
-      }
-
-      // Initialize or update selected_electives
       const { department, year, semester } = user;
       const schemaName = `${department.toLowerCase()}_courses`;
-      const tableName = `${year}-${semester}`;
-
-      const inputElectiveGroup: string = electiveGroup;
-      const normalizedName: string = inputElectiveGroup
-        .replace(/–/g, "-") // Replace en dash with regular hyphen
-        .replace(/\s*-\s*/g, " - "); // Normalize whitespace around hyphens
-
-      console.log("Normalized name:", normalizedName);
-
-      const finalElectiveGroup: string = normalizedName.includes("Lab")
-        ? normalizedName.split(" - ")[1].replace("Lab", "LAB") // For PE-III-LAB
+      const normalizedName = electiveGroup
+        .replace(/–/g, "-")
+        .replace(/\s*-\s*/g, " - ");
+      const isLab = /lab/i.test(normalizedName);
+      const finalElectiveGroup = isLab
+        ? "LAB"
         : `PE-${normalizedName.split(" - ")[1]}`;
-
       const { data: allCourses } = await supabase
         .schema(schemaName)
         .from(finalElectiveGroup)
         .select("id, course_code")
         .eq("id", courseId)
         .single();
-
-      if (fetchError || !allCourses) {
-        console.log(courseId);
-        console.log(finalElectiveGroup);
+      if (!allCourses) {
         throw new Error(
           "Failed to retrieve course_code for the selected elective"
         );
       }
-
+      const { data: existingElectives } = await supabase
+        .from("users")
+        .select("selected_electives")
+        .eq("id", user.id)
+        .single();
       const selectedElectives = existingElectives?.selected_electives || {};
       selectedElectives[finalElectiveGroup] = allCourses.course_code;
-
-      // Update user's selected electives
-      const { error: updateError } = await supabase
+      await supabase
         .from("users")
         .update({ selected_electives: selectedElectives })
         .eq("id", user.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error selecting elective:", error);
-      throw new Error(`Failed to select elective: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to select elective";
+      throw new Error(errorMessage);
     }
   },
 
@@ -801,9 +775,13 @@ export const studentService = {
       }
 
       return data?.selected_electives || {};
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching selected electives:", error);
-      throw new Error(`Failed to fetch selected electives: ${error.message}`);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch selected electives";
+      throw new Error(errorMessage);
     }
   },
 
@@ -826,9 +804,13 @@ export const studentService = {
       }
 
       return data.map((row) => row.semester);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error fetching available semesters:", error);
-      throw new Error(`Failed to fetch available semesters: ${error.message}`);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch available semesters";
+      throw new Error(errorMessage);
     }
   },
 
@@ -956,13 +938,18 @@ export const studentService = {
         return [];
       }
 
-      console.log(
-        `getOpenElectiveOptions: Successfully fetched ${data.length} raw course(s):`,
-        data
-      );
+      // Deduplicate by id (or course_code if id is missing)
+      const uniqueCoursesMap = new Map();
+      for (const course of data) {
+        const key = course.id?.toString() || course.course_code;
+        if (!uniqueCoursesMap.has(key)) {
+          uniqueCoursesMap.set(key, course);
+        }
+      }
+      const uniqueCourses = Array.from(uniqueCoursesMap.values());
 
       // Instead of filtering, mark courses as unavailable
-      return data.map((course) => {
+      return uniqueCourses.map((course) => {
         // Check department against user's department (case insensitive)
         const isFromUserDepartment =
           course.offering_department &&

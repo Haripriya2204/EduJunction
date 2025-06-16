@@ -28,8 +28,10 @@ import {
   X, 
   Clock, 
   BarChart2, 
-  RefreshCw
+  RefreshCw,
+  Download
 } from "lucide-react";
+import * as XLSX from 'xlsx';
 
 interface FeeStatusReport {
   semester: string;
@@ -262,6 +264,52 @@ const FeeReportsSection = () => {
     }
   };
 
+  // Add download function
+  const handleDownloadExcel = () => {
+    if (!detailedData.length) {
+      toast({
+        title: "Error",
+        description: "No data available to download",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prepare data for Excel
+    const excelData = detailedData.map(student => ({
+      'Roll No': student.roll_no,
+      'Name': student.name,
+      'Department': student.department,
+      'Status': student.fee_status ? student.fee_status.charAt(0).toUpperCase() + student.fee_status.slice(1) : 'Not Uploaded',
+      'Payment Mode': student.payment_mode || '-',
+      'Transaction No.': student.transaction_number || '-',
+      'Bank Name': student.bank_name || '-',
+      'Updated On': student.updated_at ? new Date(student.updated_at).toLocaleDateString() : '-'
+    }));
+
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Fee Reports');
+
+    // Generate Excel file
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `fee_reports_${selectedSemester}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Success",
+      description: "Excel report downloaded successfully",
+    });
+  };
+
   return (
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
@@ -291,6 +339,14 @@ const FeeReportsSection = () => {
             disabled={loading}
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleDownloadExcel}
+            disabled={loading || !detailedData.length}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Excel
           </Button>
         </div>
       </div>

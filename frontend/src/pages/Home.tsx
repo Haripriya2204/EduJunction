@@ -8,11 +8,7 @@ const Home = () => {
   const navigate = useNavigate();
   
   // Redirect to dashboard if already logged in
-  useEffect(() => {
-    if (authService.isAuthenticated()) {
-      navigate("/dashboard");
-    }
-  }, [navigate]);
+
   
   return (
     <div className="min-h-screen flex flex-col">
@@ -33,8 +29,21 @@ const Home = () => {
       </header>
       
       {/* Hero section */}
-      <section className="bg-gradient-to-br from-edu-primary/90 to-blue-700 text-white py-20 px-4">
-        <div className="max-w-5xl mx-auto text-center">
+      <section className="relative text-white py-20 px-4 overflow-hidden">
+        {/* Background image with blur */}
+        <div
+          className="absolute inset-0 w-full h-full z-0"
+          style={{
+            backgroundImage: `url('/assets/images/MLRIT HD Pic.JPG')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: 'blur(2px)',
+            opacity: 1,
+          }}
+        />
+        {/* Overlay for extra darkening if needed */}
+        <div className="absolute inset-0 bg-edu-primary/10 z-10" />
+        <div className="max-w-5xl mx-auto text-center relative z-20">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
             Streamline Your Campus Experience
           </h1>
