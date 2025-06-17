@@ -94,62 +94,70 @@ const LoginForm = () => {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto p-6 edu-card animate-fade-in">
-      <div className="text-center mb-6">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-edu-primary/10 mb-4">
-          <LogIn className="w-8 h-8 text-edu-primary" />
-        </div>
-        <h1 className="text-2xl font-bold text-gray-800">Welcome back</h1>
-        <p className="text-gray-600 mt-1">Log in to your account</p>
-      </div>
+    <div className="min-h-screen relative flex items-center justify-center">
+      {/* Background Image */}
+      <div />
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-          <FormField
-            control={form.control}
-            name="username"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Username / Roll Number</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Enter username or roll number"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                  <Input
-                    type="password"
-                    placeholder="Enter your password"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="text-sm text-gray-600">
-            <p>Students: Use your roll number for both username and password</p>
-            <p>Department admins: Use your assigned username and password</p>
+      {/* Login Form */}
+      <div className="relative z-10 w-full max-w-md mx-auto p-8 bg-white/95 backdrop-blur-sm rounded-lg shadow-xl">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-edu-primary/10 mb-4">
+            <LogIn className="w-8 h-8 text-edu-primary" />
           </div>
+          <h1 className="text-2xl font-bold text-gray-800">Welcome back</h1>
+          <p className="text-gray-600 mt-1">Log in to your account</p>
+        </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Logging in..." : "Log In"}
-          </Button>
-        </form>
-      </Form>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <FormField
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username / Roll Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Enter username or roll number"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="Enter your password"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="text-sm text-gray-600">
+              <p>
+                Students: Use your roll number for both username and password
+              </p>
+              <p>Department admins: Use your assigned username and password</p>
+            </div>
+
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Logging in..." : "Log In"}
+            </Button>
+          </form>
+        </Form>
+      </div>
     </div>
   );
 };

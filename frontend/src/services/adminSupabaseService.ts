@@ -60,6 +60,23 @@ export interface AdminRequest {
 }
 
 export const adminSupabaseService = {
+  async getAllDepartments(): Promise<string[]> {
+    const { data, error } = await supabase
+      .from("users")
+      .select("department")
+      .not("department", "is", null);
+
+    if (error) {
+      console.error("Error fetching departments:", error);
+      throw error;
+    }
+
+    const uniqueDepartments = Array.from(
+      new Set(data.map((item) => item.department))
+    );
+    return uniqueDepartments as string[];
+  },
+
   async getAllRequestsSupabase(year?: string): Promise<AdminRequest[]> {
     let query = supabase
       .from("users")

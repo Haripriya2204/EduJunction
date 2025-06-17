@@ -56,6 +56,13 @@ interface DetailedFeeData {
   updated_at: string;
 }
 
+interface FeeReportsSectionProps {
+  selectedDepartment: string;
+  departments: string[];
+  isSuperAdmin: boolean;
+  onDepartmentChange: (value: string) => void;
+}
+
 const COLORS = [
   "#4caf50",
   "#ff9800",
@@ -66,7 +73,12 @@ const COLORS = [
 ];
 const YEARS = ["I", "II", "III", "IV"];
 
-const FeeReportsSection = () => {
+const FeeReportsSection = ({
+  selectedDepartment,
+  departments,
+  isSuperAdmin,
+  onDepartmentChange,
+}: FeeReportsSectionProps) => {
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [reportData, setReportData] = useState<FeeStatusReport | null>(null);
   const [detailedData, setDetailedData] = useState<DetailedFeeData[]>([]);
@@ -78,7 +90,7 @@ const FeeReportsSection = () => {
   const adminDepartment = authService.getAdminDepartment();
   const isDeptAdmin = authService.isDepartmentAdmin();
 
-  // Fetch report data when year changes
+  // Fetch report data when year or department changes
   useEffect(() => {
     const fetchReportData = async () => {
       setLoading(true);
@@ -89,9 +101,11 @@ const FeeReportsSection = () => {
           .select("id", { count: "exact" })
           .eq("role", "student");
 
-        // Filter by department if department admin
-        if (adminDepartment) {
+        // Filter by department if department admin, or by selectedDepartment if super admin
+        if (isDeptAdmin && adminDepartment) {
           totalQuery = totalQuery.eq("department", adminDepartment);
+        } else if (isSuperAdmin && selectedDepartment !== "all") {
+          totalQuery = totalQuery.eq("department", selectedDepartment);
         }
 
         // Add year filter if specified
@@ -114,9 +128,11 @@ const FeeReportsSection = () => {
             .eq("role", "student")
             .eq("fee_status", status);
 
-          // Filter by department if department admin
-          if (adminDepartment) {
+          // Filter by department if department admin, or by selectedDepartment if super admin
+          if (isDeptAdmin && adminDepartment) {
             statusQuery = statusQuery.eq("department", adminDepartment);
+          } else if (isSuperAdmin && selectedDepartment !== "all") {
+            statusQuery = statusQuery.eq("department", selectedDepartment);
           }
 
           // Add year filter if specified
@@ -137,9 +153,14 @@ const FeeReportsSection = () => {
           .eq("role", "student")
           .or("fee_status.is.null,fee_status.eq.");
 
-        // Filter by department if department admin
-        if (adminDepartment) {
+        // Filter by department if department admin, or by selectedDepartment if super admin
+        if (isDeptAdmin && adminDepartment) {
           notUploadedQuery = notUploadedQuery.eq("department", adminDepartment);
+        } else if (isSuperAdmin && selectedDepartment !== "all") {
+          notUploadedQuery = notUploadedQuery.eq(
+            "department",
+            selectedDepartment
+          );
         }
 
         // Add year filter if specified
@@ -157,11 +178,16 @@ const FeeReportsSection = () => {
           .from("students")
           .select("roll_number", { count: "exact" });
 
-        // Filter by department if department admin
-        if (adminDepartment) {
+        // Filter by department if department admin, or by selectedDepartment if super admin
+        if (isDeptAdmin && adminDepartment) {
           unregisteredQuery = unregisteredQuery.eq(
             "department",
             adminDepartment
+          );
+        } else if (isSuperAdmin && selectedDepartment !== "all") {
+          unregisteredQuery = unregisteredQuery.eq(
+            "department",
+            selectedDepartment
           );
         }
 
@@ -176,7 +202,7 @@ const FeeReportsSection = () => {
         if (unregisteredError) throw unregisteredError;
 
         // Create report data
-        const total = (totalData?.length || 0) + (unregisteredCount || 0);
+        const total = (totalData?.count || 0) + (unregisteredCount || 0); // Use .count for exact count
         const report: FeeStatusReport = {
           year: selectedYear,
           total,
@@ -198,9 +224,11 @@ const FeeReportsSection = () => {
           )
           .eq("role", "student");
 
-        // Filter by department if department admin
-        if (adminDepartment) {
+        // Filter by department if department admin, or by selectedDepartment if super admin
+        if (isDeptAdmin && adminDepartment) {
           detailedQuery = detailedQuery.eq("department", adminDepartment);
+        } else if (isSuperAdmin && selectedDepartment !== "all") {
+          detailedQuery = detailedQuery.eq("department", selectedDepartment);
         }
 
         // Add year filter if specified
@@ -226,7 +254,14 @@ const FeeReportsSection = () => {
     };
 
     fetchReportData();
-  }, [selectedYear, toast, adminDepartment]);
+  }, [
+    selectedYear,
+    selectedDepartment,
+    toast,
+    adminDepartment,
+    isDeptAdmin,
+    isSuperAdmin,
+  ]);
 
   // Prepare chart data
   const getChartData = () => {
@@ -269,7 +304,9 @@ const FeeReportsSection = () => {
   };
 
   const handleRefresh = () => {
-    setSelectedYear(selectedYear); // This will trigger the useEffect
+    // Trigger re-fetch of data based on current filters
+    setSelectedYear(selectedYear); // Re-triggers year effect
+    onDepartmentChange(selectedDepartment); // Re-triggers department effect
   };
 
   return (
@@ -282,9 +319,33 @@ const FeeReportsSection = () => {
               Showing reports for {adminDepartment} department
             </p>
           )}
+          {isSuperAdmin && selectedDepartment !== "all" && (
+            <p className="text-sm text-gray-600 mt-1">
+              Showing reports for {selectedDepartment} department
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
+          {isSuperAdmin && (
+            <Select
+              value={selectedDepartment}
+              onValueChange={onDepartmentChange}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select Department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Departments</SelectItem>
+                {departments.map((dept) => (
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <Select value={selectedYear} onValueChange={setSelectedYear}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select Year" />
