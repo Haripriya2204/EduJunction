@@ -100,7 +100,7 @@ export interface OpenElective {
 
 // List of detained students (comma-separated roll numbers)
 export const DETAINED_STUDENTS =
-  "23R21A12B3,2020CS002,2020CS003,2020CS004,2020CS005";
+  "23R21A12B3,2020CS002,2020CS003,2020CS004,2020CS005,22R21A66D4";
 
 /**
  * SQLite table creation statements - for reference only
