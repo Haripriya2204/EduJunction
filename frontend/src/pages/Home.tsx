@@ -27,7 +27,7 @@ const Home = () => {
       <div className="relative z-10 min-h-screen flex flex-col">
         {/* Header */}
         <header className="w-full py-4 px-6 flex justify-between items-center">
-          <div className="text-white text-2xl font-bold">EduJunction</div>
+          <div className="text-white text-2xl font-bold">MLRIT-ACH</div>
           <div className="flex gap-4">
             <Link to="/login">
               <Button
@@ -45,7 +45,7 @@ const Home = () => {
           <div className="text-center text-white max-w-3xl">
             <h1 className="text-5xl font-bold mb-6">Welcome to </h1>
             <h1 className="text-5xl font-bold mb-6 text-blue-800">
-              EduJunction
+              MLRIT ACADEMIC CATALOG HUB
             </h1>
             <p className="text-xl mb-8">
               Streamline your educational journey with our comprehensive fee
@@ -134,7 +134,7 @@ const Home = () => {
               <div className="mb-4 md:mb-0">
                 <a href="/" className="flex items-center text-white">
                   <BookUser className="h-6 w-6 mr-2" />
-                  <span className="text-lg font-bold">Edu Junction</span>
+                  <span className="text-lg font-bold">MLRIT-ACH</span>
                 </a>
               </div>
 
@@ -156,7 +156,7 @@ const Home = () => {
 
             <div className="mt-8 pt-8 border-t border-gray-700 text-center text-sm text-gray-400">
               <p>
-                &copy; {new Date().getFullYear()} Edu Junction. All rights
+                &copy; {new Date().getFullYear()} MLRIT-ACH. All rights
                 reserved.
               </p>
             </div>

@@ -19,7 +19,7 @@ const Login = () => {
           <div className="max-w-7xl mx-auto flex justify-center md:justify-start">
             <a href="/" className="flex items-center text-white">
               <BookUser className="h-8 w-8 mr-2" />
-              <span className="text-xl font-bold">Edu Junction</span>
+              <span className="text-xl font-bold">MLRIT-ACH</span>
             </a>
           </div>
         </header>
@@ -31,8 +31,7 @@ const Login = () => {
         <footer className="py-6 px-4 bg-transparent border-t border-gray-700/50">
           <div className="max-w-7xl mx-auto text-center text-sm text-gray-300">
             <p>
-              &copy; {new Date().getFullYear()} Edu Junction. All rights
-              reserved.
+              &copy; {new Date().getFullYear()} MLRIT-ACH. All rights reserved.
             </p>
           </div>
         </footer>

@@ -190,7 +190,7 @@ Date: ${format(new Date(), "MMM d, yyyy")}
 Please contact your department administrator if you have any questions.
 
 Best regards,
-EduJunction Team
+MLRIT-ACH Team
     `.trim();
 
     const templateParams = {
