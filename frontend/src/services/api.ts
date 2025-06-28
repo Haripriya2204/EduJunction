@@ -23,7 +23,7 @@ export const authService = {
 
       // Check if the student exists in the students table
       const { data: student, error: studentError } = await supabase
-        .from("students")
+        .from("students25")
         .select()
         .eq("roll_number", username)
         .single();
@@ -75,7 +75,9 @@ export const authService = {
 
         if (signInError) {
           console.error("Sign in error after sign up:", signInError);
-          throw new Error("Failed to sign in after account creation");
+          throw new Error(
+            "Check your student email and confirm the mail from supabase to continue"
+          );
         }
 
         authData = signInData;

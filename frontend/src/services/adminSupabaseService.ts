@@ -60,6 +60,8 @@ export interface AdminRequest {
 }
 
 export const adminSupabaseService = {
+  supabase,
+
   async getAllDepartments(): Promise<string[]> {
     const { data, error } = await supabase
       .from("users")
@@ -212,10 +214,12 @@ export const adminSupabaseService = {
 
     const registeredSet = new Set(registeredUsers.map((u) => u.roll_no));
 
-    let query = supabase
-      .from("students")
-      .select("*")
-      .eq("department", department); // Department filtering at query level
+    let query = supabase.from("students25").select("*");
+
+    // Add department filter if specified and not "all"
+    if (department && department !== "all") {
+      query = query.eq("department", department);
+    }
 
     // Add year filter if specified
     if (year && year !== "all") {
