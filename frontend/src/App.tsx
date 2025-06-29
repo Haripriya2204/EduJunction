@@ -11,6 +11,10 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import About from './pages/about';
+import Features from './pages/features';
+import Help from './pages/help';
+import Contact from './pages/contact';
 
 // Dashboard pages
 import DashboardLayout from "./components/dashboard/DashboardLayout";
@@ -49,6 +53,10 @@ const App = () => {
             {/* Public routes */}
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/features" element={<Features />} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/contact" element={<Contact />} />
 
             {/* Protected dashboard routes */}
             <Route

@@ -139,16 +139,10 @@ const Home = () => {
               </div>
 
               <div className="flex space-x-6">
-                <a href="#" className="text-gray-300 hover:text-white">
+                <a href="/about" className="text-gray-300 hover:text-white">
                   About
                 </a>
-                <a href="#" className="text-gray-300 hover:text-white">
-                  Features
-                </a>
-                <a href="#" className="text-gray-300 hover:text-white">
-                  Help
-                </a>
-                <a href="#" className="text-gray-300 hover:text-white">
+                <a href="/contact" className="text-gray-300 hover:text-white">
                   Contact
                 </a>
               </div>
@@ -157,6 +151,9 @@ const Home = () => {
             <div className="mt-8 pt-8 border-t border-gray-700 text-center text-sm text-gray-400">
               <p>
                 &copy; {new Date().getFullYear()} Edmit. All rights reserved.
+              </p>
+              <p className="mt-2">
+                Powered by CSM Students: B.Abhilash, D.Haripriya, Ch. Shashank, M.sameeha, Siddharth, Keertan
               </p>
             </div>
           </div>
