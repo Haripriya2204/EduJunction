@@ -315,14 +315,18 @@ const Courses = () => {
 
     console.log("Selected course for confirmation:", selectedCourse);
 
+    // Check if the course is enrolled out (new boolean column)
+    if (selectedCourse.enrolled_out === true) {
+      toast.error("This course is enrolled out and cannot be selected");
+      return;
+    }
+
     // Check if the course is available for selection
     if (selectedCourse.isAvailable === false) {
       const reason =
         selectedCourse.unavailableReason ||
         (selectedCourse.fromUserDepartment
           ? "You cannot select electives from your own department"
-          : selectedCourse.enrolled_out
-          ? "This course has reached its enrollment limit"
           : "This course is not available for selection");
 
       toast.error(reason);
@@ -829,26 +833,34 @@ const Courses = () => {
               </SelectTrigger>
               <SelectContent>
                 {availableElectives[currentElectiveGroup]?.map((course) => {
-                  const isAvailable = course.isAvailable !== false;
-                  const warningText = isAvailable
-                    ? ""
-                    : course.unavailableReason ||
-                      (course.fromUserDepartment
-                        ? "Cannot select from your department"
-                        : course.enrolled_out
-                        ? "Enrollment limit reached"
-                        : "Not available");
+                  // Check if course is enrolled out (new boolean column)
+                  const isEnrolledOut = course.enrolled_out === true;
+                  const isAvailable =
+                    course.isAvailable !== false && !isEnrolledOut;
+
+                  let warningText = "";
+                  if (!isAvailable) {
+                    if (isEnrolledOut) {
+                      warningText = "Enrolled Out";
+                    } else if (course.unavailableReason) {
+                      warningText = course.unavailableReason;
+                    } else if (course.fromUserDepartment) {
+                      warningText = "Cannot select from your department";
+                    } else {
+                      warningText = "Not available";
+                    }
+                  }
 
                   return (
                     <SelectItem
                       key={course.id}
                       value={course.id}
                       disabled={!isAvailable}
-                      className={!isAvailable ? "text-gray-400" : ""}
+                      className={!isAvailable ? "text-gray-400 opacity-50" : ""}
                     >
                       {course.course_name} ({course.course_code})
                       {!isAvailable && (
-                        <span className="ml-2 text-xs text-amber-600">
+                        <span className="ml-2 text-xs text-red-600">
                           ({warningText})
                         </span>
                       )}
