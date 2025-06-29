@@ -153,7 +153,7 @@ const Home = () => {
                 &copy; {new Date().getFullYear()} Edmit. All rights reserved.
               </p>
               <p className="mt-2">
-                Powered by CSM Students: B.Abhilash, D.Haripriya, Ch. Shashank, M.sameeha, Siddharth, Keertan
+                Powered by CSM Students: B.Abhilash, D.Haripriya, Ch. Shashank, M. Sameeha, Siddharth, Keertan
               </p>
             </div>
           </div>
