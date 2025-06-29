@@ -93,15 +93,15 @@ const FeeSlip = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      // Only allow PDF files up to 5MB, and also JPG/JPEG/PNG
-      const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+      // Only allow PDF files up to 1MB
+      const allowedTypes = ["application/pdf"];
       if (!allowedTypes.includes(file.type)) {
-        toast.error("Only PDF, JPEG, and PNG files are allowed");
+        toast.error("Only PDF files are allowed");
         return;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        // 5MB limit
-        toast.error("File size should be less than 5MB");
+      if (file.size > 1 * 1024 * 1024) {
+        // 1MB limit
+        toast.error("File size should be less than 1MB");
         return;
       }
       setSelectedFile(file);
@@ -163,16 +163,16 @@ const FeeSlip = () => {
       return;
     }
 
-    // Validate file size (5MB limit)
-    if (selectedFile.size > 5 * 1024 * 1024) {
-      toast.error("File size should be less than 5MB");
+    // Validate file size (1MB limit)
+    if (selectedFile.size > 1 * 1024 * 1024) {
+      toast.error("File size should be less than 1MB");
       return;
     }
 
     // Validate file type
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+    const allowedTypes = ["application/pdf"];
     if (!allowedTypes.includes(selectedFile.type)) {
-      toast.error("Only PDF, JPEG, and PNG files are allowed");
+      toast.error("Only PDF files are allowed");
       return;
     }
 
@@ -329,7 +329,7 @@ const FeeSlip = () => {
                   <div className="flex">
                     <dt className="w-24 text-sm text-gray-500">Student ID:</dt>
                     <dd className="text-sm font-medium">
-                      {currentUser?.rollNo}
+                      {currentUser?.roll_no}
                     </dd>
                   </div>
                   <div className="flex">
@@ -340,12 +340,6 @@ const FeeSlip = () => {
                     <dt className="w-24 text-sm text-gray-500">Department:</dt>
                     <dd className="text-sm font-medium">
                       {currentUser?.department}
-                    </dd>
-                  </div>
-                  <div className="flex">
-                    <dt className="w-24 text-sm text-gray-500">Semester:</dt>
-                    <dd className="text-sm font-medium">
-                      {feeStatus === "approved" ? approvedSemester : ""}
                     </dd>
                   </div>
                 </dl>
@@ -452,7 +446,7 @@ const FeeSlip = () => {
                     Click to upload or drag and drop
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    PDF only (max. 5MB)
+                    PDF only (max. 1MB)
                   </p>
                 </div>
               )}
@@ -460,7 +454,7 @@ const FeeSlip = () => {
               <Input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
+                accept=".pdf"
                 className="hidden"
                 onChange={handleFileChange}
               />

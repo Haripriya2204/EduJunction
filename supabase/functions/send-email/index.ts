@@ -26,7 +26,7 @@ serve(async (req) => {
     });
 
     await client.send({
-      from: from || "23r21a1285@mlrit.ac.in",
+      from: from || "noreply@edmit.com",
       to: to,
       subject: subject,
       content: html,

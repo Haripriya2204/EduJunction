@@ -173,7 +173,7 @@ const DashboardLayout = () => {
     <>
       <div className="h-16 flex items-center justify-center border-b">
         <BookUser className="h-6 w-6 text-edu-primary mr-2" />
-        <h1 className="text-xl font-bold text-edu-primary">MLRIT-ACH</h1>
+        <h1 className="text-xl font-bold text-edu-primary">Edmit</h1>
       </div>
 
       <ScrollArea className="flex-1 py-4">
@@ -286,7 +286,7 @@ const DashboardLayout = () => {
       <div className="md:hidden flex items-center justify-between p-4 border-b bg-white w-full">
         <div className="flex items-center">
           <BookUser className="h-6 w-6 text-edu-primary mr-2" />
-          <h1 className="text-xl font-bold text-edu-primary">MLRIT-ACH</h1>
+          <h1 className="text-xl font-bold text-edu-primary">Edmit</h1>
         </div>
 
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>

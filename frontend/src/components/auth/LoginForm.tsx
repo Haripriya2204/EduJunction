@@ -41,7 +41,7 @@ const LoginForm = () => {
           JSON.stringify({
             role: "admin",
             name: "Super Administrator",
-            email: "admin@mlrit-ach.com",
+            email: "admin@edmit.com",
             department: "Administration",
           })
         );

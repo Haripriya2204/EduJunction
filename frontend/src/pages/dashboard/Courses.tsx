@@ -168,7 +168,10 @@ const Courses = () => {
 
   // Update the fetchCourses function
   const fetchCourses = async () => {
-    if (!selectedSemester) return;
+    if (!selectedSemester) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -556,6 +559,36 @@ const Courses = () => {
                 No approved semester found. Please submit your fee receipt for
                 approval.
               </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : feeStatus === "not_uploaded" || !feeStatus ? (
+        <Card className="bg-blue-50 border-blue-200 mb-6">
+          <CardContent className="pt-6">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-blue-600" />
+                <p className="text-blue-800 font-medium">
+                  No fee receipt found
+                </p>
+              </div>
+              <p className="text-blue-700 ml-7">
+                You need to upload your fee receipt to access your courses.
+                Please submit your fee slip for approval.
+              </p>
+              <div className="ml-7 mt-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  asChild
+                  className="transition-all duration-200"
+                >
+                  <a href="/dashboard/services/feeslip">
+                    <FileText className="mr-2 h-4 w-4" />
+                    Upload Fee Slip
+                  </a>
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
