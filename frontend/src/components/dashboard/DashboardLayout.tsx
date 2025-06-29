@@ -93,16 +93,6 @@ const DashboardLayout = () => {
           label: "Fee Reports",
           icon: <FileText className="h-5 w-5" />,
         },
-        // Only show Manage Department Admins for super admin
-        ...(isSuperAdmin
-          ? [
-              {
-                path: "/dashboard/manage-dept-admins",
-                label: "Manage Department Admins",
-                icon: <BookUser className="h-5 w-5" />,
-              },
-            ]
-          : []),
       ]
     : [
         {

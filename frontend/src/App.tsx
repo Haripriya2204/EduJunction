@@ -28,7 +28,6 @@ import Notifications from "./pages/dashboard/Notifications";
 import StudentRequests from "./pages/dashboard/StudentRequests";
 import Events from "./pages/dashboard/Events";
 import FeeReports from "./pages/dashboard/FeeReports";
-import ManageDeptAdmins from "./pages/admin/ManageDeptAdmins";
 
 // Auth protection
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -80,7 +79,6 @@ const App = () => {
               <Route path="student-requests" element={<StudentRequests />} />
               <Route path="events" element={<Events />} />
               <Route path="fee-reports" element={<FeeReports />} />
-              <Route path="manage-dept-admins" element={<ManageDeptAdmins />} />
             </Route>
 
             {/* Catch-all route */}
