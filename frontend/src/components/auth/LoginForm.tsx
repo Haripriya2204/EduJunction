@@ -150,7 +150,6 @@ const LoginForm = () => {
                 Students: Use your roll number for both username and password
                 [Capitals]
               </p>
-              <p>Department admins: Use your assigned username and password</p>
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>

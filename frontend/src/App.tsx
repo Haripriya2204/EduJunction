@@ -20,11 +20,9 @@ import Contact from './pages/contact';
 import DashboardLayout from "./components/dashboard/DashboardLayout";
 import Profile from "./pages/dashboard/Profile";
 import Courses from "./pages/dashboard/Courses";
-import GatePass from "./pages/dashboard/GatePass";
 import FeeSlip from "./pages/dashboard/FeeSlip";
 import Requests from "./pages/dashboard/Requests";
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
-import Notifications from "./pages/dashboard/Notifications";
 import StudentRequests from "./pages/dashboard/StudentRequests";
 import Events from "./pages/dashboard/Events";
 import FeeReports from "./pages/dashboard/FeeReports";
@@ -69,10 +67,8 @@ const App = () => {
               <Route index element={<DashboardIndex />} />
               <Route path="profile" element={<Profile />} />
               <Route path="courses" element={<Courses />} />
-              <Route path="services/gatepass" element={<GatePass />} />
               <Route path="services/feeslip" element={<FeeSlip />} />
               <Route path="requests" element={<Requests />} />
-              <Route path="notifications" element={<Notifications />} />
 
               {/* Admin routes */}
               <Route path="admin" element={<AdminDashboard />} />

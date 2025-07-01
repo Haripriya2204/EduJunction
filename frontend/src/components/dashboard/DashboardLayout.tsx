@@ -110,11 +110,6 @@ const DashboardLayout = () => {
           icon: <Layers className="h-5 w-5" />,
           subItems: [
             {
-              path: "/dashboard/services/gatepass",
-              label: "Gate Pass",
-              icon: <Ticket className="h-5 w-5" />,
-            },
-            {
               path: "/dashboard/services/feeslip",
               label: "Fee Slip",
               icon: <FileText className="h-5 w-5" />,
@@ -125,11 +120,6 @@ const DashboardLayout = () => {
           path: "/dashboard/requests",
           label: "My Requests",
           icon: <Clock className="h-5 w-5" />,
-        },
-        {
-          path: "/dashboard/notifications",
-          label: "Notifications",
-          icon: <NotificationBadge />,
         },
       ];
 
