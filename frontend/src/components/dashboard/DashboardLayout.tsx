@@ -151,10 +151,14 @@ const DashboardLayout = () => {
 
   const SidebarContent = () => (
     <>
-      <div className="h-16 flex items-center justify-center border-b">
+      <button
+        className="h-16 flex items-center justify-center border-b w-full focus:outline-none focus:ring-2 focus:ring-edu-primary"
+        onClick={() => navigate("/")}
+        aria-label="Go to home"
+      >
         <BookUser className="h-6 w-6 text-edu-primary mr-2" />
         <h1 className="text-xl font-bold text-edu-primary">Edmit</h1>
-      </div>
+      </button>
 
       <ScrollArea className="flex-1 py-4">
         <div className="px-3 space-y-1">
@@ -264,10 +268,14 @@ const DashboardLayout = () => {
 
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 border-b bg-white w-full">
-        <div className="flex items-center">
+        <button
+          className="flex items-center focus:outline-none focus:ring-2 focus:ring-edu-primary rounded"
+          onClick={() => navigate("/")}
+          aria-label="Go to home"
+        >
           <BookUser className="h-6 w-6 text-edu-primary mr-2" />
           <h1 className="text-xl font-bold text-edu-primary">Edmit</h1>
-        </div>
+        </button>
 
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild>

@@ -69,9 +69,9 @@ const Home = () => {
         <section className="py-12 md:py-16 px-2 md:px-4">
           <div className="max-w-5xl mx-auto text-center">
             <h2 className="text-3xl font-bold mb-10 text-white">
-              MLRIT COLLEGE OF ENGINEERING
+              MLR Institute of Technology
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="p-6 bg-white rounded-lg shadow-sm">
                 <div className="w-12 h-12 bg-edu-primary/10 rounded-lg flex items-center justify-center mb-4">
                   <BookOpen className="w-6 h-6 text-edu-primary" />
@@ -93,17 +93,6 @@ const Home = () => {
                 <p className="text-gray-600">
                   Submit and track requests for gate passes, fee slips, and
                   elective courses.
-                </p>
-              </div>
-
-              <div className="p-6 bg-white rounded-lg shadow-sm">
-                <div className="w-12 h-12 bg-edu-primary/10 rounded-lg flex items-center justify-center mb-4">
-                  <FileText className="w-6 h-6 text-edu-primary" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">MLRIT</h3>
-                <p className="text-gray-600">
-                  MLR Institute of Technology (MLRIT) is located at Dundigal,
-                  Hyderabad, Telangana, India.
                 </p>
               </div>
             </div>

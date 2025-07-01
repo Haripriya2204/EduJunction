@@ -104,7 +104,7 @@ const LoginForm = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-edu-primary/10 mb-4">
             <LogIn className="w-8 h-8 text-edu-primary" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">Welcome back</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Welcome to EDMIT</h1>
           <p className="text-gray-600 mt-1">Log in to your account</p>
         </div>
 
