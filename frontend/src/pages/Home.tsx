@@ -118,8 +118,8 @@ const Home = () => {
           <div className="mt-8 pt-8 border-t border-gray-700 text-center text-sm text-gray-400">
             <p>&copy; {new Date().getFullYear()} Edmit. All rights reserved.</p>
             <p className="mt-2">
-              Developed by CSM Students: B.Abhilash, D.Haripriya, Ch. Shashank,
-              M. Sameeha, Siddharth (IT), Keertan (IT)
+              Developed by: B.Abhilash, D.Haripriya, Ch. Shashank, M. Sameeha, T
+              S Siddharth, Keertan K
             </p>
           </div>
         </footer>
