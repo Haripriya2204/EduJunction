@@ -1,32 +1,19 @@
 import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
-import {
-  BookUser,
-  BookOpen,
-  UserCheck,
-  FileText,
-  Lightbulb,
-  ArrowRight,
-} from "lucide-react";
-import { useEffect } from "react";
-import { authService } from "../services/api";
+import { ArrowRight, BookOpen, UserCheck, FileText } from "lucide-react";
 
 const Home = () => {
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative flex flex-col">
       {/* Background Image */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{
-          backgroundImage: "url('/background.jpg')",
-          filter: "brightness(0.7)",
-        }}
+        className="absolute inset-0 bg-gradient-to-br from-pink-300 via-blue-600 to-blue-800"
+        style={{}}
       />
 
-      {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col">
+      <div className="relative z-10 flex flex-col min-h-screen px-2 md:px-0">
         {/* Header */}
-        <header className="w-full py-4 px-6 flex justify-between items-center">
+        <header className="w-full py-4 px-4 md:px-6 flex justify-between items-center">
           <div className="text-white text-2xl font-bold">Edmit</div>
           <div className="flex gap-4">
             <Link to="/login">
@@ -41,32 +28,49 @@ const Home = () => {
         </header>
 
         {/* Hero Section */}
-        <main className="flex-1 flex items-center justify-center px-6">
-          <div className="text-center text-white max-w-3xl">
-            <h1 className="text-5xl font-bold mb-6">Welcome to </h1>
-            <h1 className="text-5xl font-bold mb-6 text-blue-800">
-              EDUCATION MANAGEMENT SYSTEM
-            </h1>
-            <p className="text-xl mb-8">
-              Streamline your educational journey with our comprehensive fee
-              management system
-            </p>
-            <Link to="/login">
-              <Button
-                size="lg"
-                className="bg-white text-black hover:bg-white/90"
-              >
-                Get Started
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
+        <main className="flex-1 flex flex-col justify-center px-4 md:px-6 py-8 md:py-0">
+          <div className="max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            {/* Left: Text content */}
+            <div className="text-white text-center md:text-left space-y-6 mt-28">
+              <h1 className="text-4xl md:text-5xl font-bold">
+                Welcome to{" "}
+                <span className="text-blue-300 block md:inline">
+                  EDMIT - COURSE REGISTRATION
+                </span>
+              </h1>
+              <p className="text-lg md:text-xl pb-6">
+                Streamline your educational journey with our comprehensive fee
+                management system.
+              </p>
+              <Link to="/login">
+                <Button
+                  size="lg"
+                  className="bg-white text-black hover:bg-white/90"
+                >
+                  Get Started
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+            </div>
+
+            {/* Right: Logo placeholder */}
+            <div className="flex justify-center md:justify-end">
+              <div className="bg-white rounded-full p-6 w-64 h-64 flex items-center justify-center shadow-lg">
+                <img
+                  src="/MLRIT.png"
+                  alt="MLRIT Logo"
+                  className="object-contain w-full h-full rounded-full"
+                  style={{ maxHeight: "220px", maxWidth: "220px" }}
+                />
+              </div>
+            </div>
           </div>
         </main>
 
-        {/* Features section */}
-        <section className="py-16 px-4">
-          <div className="max-w-7xl mx-auto">
-            <h2 className="text-3xl font-bold text-white text-center mb-12">
+        {/* Key Features section */}
+        <section className="py-12 md:py-16 px-2 md:px-4">
+          <div className="max-w-5xl mx-auto text-center">
+            <h2 className="text-3xl font-bold mb-10 text-white">
               Key Features
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -110,52 +114,28 @@ const Home = () => {
           </div>
         </section>
 
-        {/* CTA section */}
-        <section className="py-16 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl font-bold mb-6 text-white">
-              Ready to Get Started?
-            </h2>
-            <p className="text-xl mb-8 text-white">
-              Log in to access your educational portal.
-            </p>
-            <Link to="/login">
-              <Button size="lg" className="bg-edu-primary hover:bg-edu-dark">
-                Log In Now
-              </Button>
-            </Link>
-          </div>
-        </section>
-
         {/* Footer */}
-        <footer className="py-10 px-4 bg-gray-800 text-white">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="mb-4 md:mb-0">
-                <a href="/" className="flex items-center text-white">
-                  <BookUser className="h-6 w-6 mr-2" />
-                  <span className="text-lg font-bold">Edmit</span>
-                </a>
-              </div>
-
-              <div className="flex space-x-6">
-                <a href="/about" className="text-gray-300 hover:text-white">
-                  About
-                </a>
-                <a href="/contact" className="text-gray-300 hover:text-white">
-                  Contact
-                </a>
-              </div>
+        <footer className="py-8 md:py-10 px-2 md:px-4 bg-gray-800 text-white">
+          <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center">
+            <a href="/" className="flex items-center text-white mb-4 md:mb-0">
+              <span className="text-lg font-bold">Edmit</span>
+            </a>
+            <div className="flex space-x-6">
+              <a href="/about" className="text-gray-300 hover:text-white">
+                About
+              </a>
+              <a href="/contact" className="text-gray-300 hover:text-white">
+                Contact
+              </a>
             </div>
+          </div>
 
-            <div className="mt-8 pt-8 border-t border-gray-700 text-center text-sm text-gray-400">
-              <p>
-                &copy; {new Date().getFullYear()} Edmit. All rights reserved.
-              </p>
-              <p className="mt-2">
-                Developed by CSM Students: B.Abhilash, D.Haripriya, Ch. Shashank, M. Sameeha, Siddharth, Keertan
-              </p>
-            </div>
+          <div className="mt-8 pt-8 border-t border-gray-700 text-center text-sm text-gray-400">
+            <p>&copy; {new Date().getFullYear()} Edmit. All rights reserved.</p>
+            <p className="mt-2">
+              Developed by CSM Students: B.Abhilash, D.Haripriya, Ch. Shashank,
+              M. Sameeha, Siddharth (IT), Keertan (IT)
+            </p>
           </div>
         </footer>
       </div>

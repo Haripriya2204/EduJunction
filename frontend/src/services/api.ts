@@ -907,60 +907,30 @@ export const studentService = {
         enrolled_out: boolean | string;
       }
 
-      // Get all department schemas to check
-      const departmentSchemas = [
-        "it_courses",
-        "cse_courses",
-        "ece_courses",
-        "mech_courses",
-        "hsm_courses",
-        "aero_courses",
-        "csd_courses",
-        "csc_courses",
-        "eee_courses",
-      ];
-
-      // First try the user's department schema
-      departmentSchemas.unshift(`${user.department.toLowerCase()}_courses`);
-
-      console.log(
-        `getOpenElectiveOptions: Will try these schemas:`,
-        departmentSchemas
-      );
-
+      // Only use the user's department schema
+      const schema = `${user.department.toLowerCase()}_courses`;
       let data: OpenElectiveRecord[] = [];
 
-      // Try each schema
-      for (const schema of departmentSchemas) {
-        console.log(
-          `getOpenElectiveOptions: Trying schema "${schema}" with table "${electiveGroup}"`
+      // Query the table with schema
+      const result = await supabase
+        .schema(schema)
+        .from(electiveGroup)
+        .select(
+          "id, course_code, course_name, offering_department, enrolled_out"
         );
 
-        // Query the table with schema
-        const result = await supabase
-          .schema(schema)
-          .from(electiveGroup)
-          .select(
-            "id, course_code, course_name, offering_department, enrolled_out"
-          );
-
-        if (!result.error && result.data && result.data.length > 0) {
-          console.log(
-            `getOpenElectiveOptions: Success! Found data in "${schema}.${electiveGroup}"`,
-            result.data
-          );
-          data = [...data, ...(result.data as OpenElectiveRecord[])];
-        } else {
-          console.log(
-            `getOpenElectiveOptions: No data found in "${schema}.${electiveGroup}" or error:`,
-            result.error
-          );
-        }
+      if (!result.error && result.data && result.data.length > 0) {
+        data = result.data as OpenElectiveRecord[];
+      } else {
+        console.log(
+          `getOpenElectiveOptions: No data found in "${schema}.${electiveGroup}" or error:`,
+          result.error
+        );
       }
 
       if (data.length === 0) {
         console.error(
-          `getOpenElectiveOptions: Could not find data in any of the attempted schemas/tables`
+          `getOpenElectiveOptions: Could not find data in the user's department schema/table`
         );
         return [];
       }
@@ -1090,6 +1060,7 @@ export const studentService = {
         "csd_courses",
         "csc_courses",
         "eee_courses",
+        "csm_courses",
       ];
 
       let selectedCourse: OpenElectiveRecord | null = null;
