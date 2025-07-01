@@ -53,14 +53,20 @@ const Home = () => {
 
             {/* Right: Logo placeholder */}
             <div className="flex justify-center md:justify-end">
-              <div className="bg-white rounded-full p-6 w-64 h-64 flex items-center justify-center shadow-lg">
+              <a
+                href="https://www.mlrit.ac.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-background rounded-full p-6 w-64 h-64 flex items-center justify-center shadow-lg transition-transform duration-300 hover:-translate-y-3 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-edu-primary"
+                aria-label="Visit MLRIT website"
+              >
                 <img
                   src="/MLRIT.png"
                   alt="MLRIT Logo"
                   className="object-contain w-full h-full rounded-full"
                   style={{ maxHeight: "220px", maxWidth: "220px" }}
                 />
-              </div>
+              </a>
             </div>
           </div>
         </main>

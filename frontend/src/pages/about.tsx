@@ -49,14 +49,6 @@ const About = () => {
             research, innovation and entrepreneurship to solve societal
             problems.
           </p>
-          <h2 className="text-3xl font-bold mt-8 mb-4 text-blue-500">
-            About this Website
-          </h2>
-          <p className="mb-6">
-            This website, edmit.mlrit.ac.in, is a platform for students to
-            upload their fee receipts to be verified by administration and see
-            and choose their courses.
-          </p>
         </div>
       </div>
     </div>
