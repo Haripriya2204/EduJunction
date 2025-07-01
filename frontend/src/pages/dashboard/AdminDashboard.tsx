@@ -603,37 +603,8 @@ const AdminDashboard = () => {
                       </CardContent>
                     </Card>
 
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="flex items-center">
-                          <GraduationCap className="h-6 w-6 text-green-500 mr-2" />
-                          <div>
-                            <div className="text-2xl font-bold">
-                              {departmentStats.length}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              Departments
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="flex items-center">
-                          <TrendingUp className="h-6 w-6 text-purple-500 mr-2" />
-                          <div>
-                            <div className="text-2xl font-bold">
-                              {yearStats.length}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              Academic Years
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                   
+                    
 
                     <Card>
                       <CardContent className="p-4">
