@@ -95,7 +95,7 @@ const ITEMS_PER_PAGE = 50;
 const YEARS = ["I", "II", "III", "IV"];
 
 const StudentRequests = () => {
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("pending");
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [requests, setRequests] = useState<AdminRequest[]>([]);
   const [unregisteredStudents, setUnregisteredStudents] = useState<Student[]>(
@@ -343,10 +343,6 @@ Edmit Team
   // Filter requests by status
   const getFilteredRequests = () => {
     let filtered = requests.filter((req) => req.status !== "not uploaded");
-
-    if (activeTab === "all") {
-      return filtered;
-    }
     return filtered.filter((req) => req.status === activeTab);
   };
 
@@ -511,23 +507,17 @@ Edmit Team
         </CardHeader>
         <CardContent>
           <Tabs
-            defaultValue="all"
+            defaultValue="pending"
             value={activeTab}
             onValueChange={setActiveTab}
             className="transition-opacity duration-300"
           >
-            <TabsList className="grid grid-cols-4 md:grid-cols-5 mb-4">
-              <TabsTrigger value="all">All</TabsTrigger>
+            <TabsList className="grid grid-cols-4 md:grid-cols-4 mb-4">
               <TabsTrigger value="pending">Pending</TabsTrigger>
               <TabsTrigger value="approved">Approved</TabsTrigger>
               <TabsTrigger value="rejected">Rejected</TabsTrigger>
               <TabsTrigger value="on_hold">On Hold</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="all" className="space-y-4">
-              {renderRequestsList()}
-              {renderUnregisteredStudents()}
-            </TabsContent>
 
             <TabsContent value="pending" className="space-y-4">
               {renderRequestsList()}
@@ -961,8 +951,7 @@ Edmit Team
             No requests found
           </AlertTitle>
           <AlertDescription>
-            There are no {activeTab !== "all" ? activeTab : ""} fee receipt
-            requests at this time.
+            There are no {activeTab} fee receipt requests at this time.
           </AlertDescription>
         </Alert>
       );

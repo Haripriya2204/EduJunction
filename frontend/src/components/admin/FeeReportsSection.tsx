@@ -413,11 +413,11 @@ const FeeReportsSection = ({
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {reportData.pending + reportData.unregistered}
+                      {reportData.unregistered - reportData.pending}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {reportData.pending} fee receipts +{" "}
-                      {reportData.unregistered} unregistered
+                      {reportData.unregistered} unregistered -{" "}
+                      {reportData.pending} fee receipts
                     </p>
                   </CardContent>
                 </Card>
