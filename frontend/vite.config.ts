@@ -15,6 +15,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    allowedHosts: ['edmit.mlrit.ac.in'],
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
