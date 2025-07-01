@@ -41,30 +41,24 @@ const FeeSlip = () => {
   const [paymentMode, setPaymentMode] = useState<string>("");
   const [transactionNumber, setTransactionNumber] = useState<string>("");
   const [bankName, setBankName] = useState<string>("");
+  const [mobileNumber, setMobileNumber] = useState<string>(
+    currentUser?.mobile_number || ""
+  );
+  const [mobileSaved, setMobileSaved] = useState<boolean>(
+    !!currentUser?.mobile_number
+  );
+  const [savingMobile, setSavingMobile] = useState(false);
 
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const {
-          status,
-          semester,
-          paymentMode,
-          transactionNumber,
-          bankName,
-          feeReceiptUrl,
-        } = await studentService.getFeeReceiptStatus();
+        const { status } = await studentService.getFeeReceiptStatus();
         setFeeStatus(status);
-        setApprovedSemester(semester);
-        setPaymentMode(paymentMode || "");
-        setTransactionNumber(transactionNumber || "");
-        setBankName(bankName || "");
-
-        // If there's a stored receipt URL, set it for preview
-        if (feeReceiptUrl) {
-          setPreviewUrl(feeReceiptUrl);
-        } else {
-          setPreviewUrl(null);
-        }
+        setApprovedSemester(null);
+        setPaymentMode("");
+        setTransactionNumber("");
+        setBankName("");
+        setPreviewUrl(null);
       } catch (error) {
         console.error("Error fetching fee status:", error);
       } finally {
@@ -89,6 +83,36 @@ const FeeSlip = () => {
 
     checkAuth();
   }, []);
+
+  // Fetch user mobile number on mount (in case it's updated elsewhere)
+  useEffect(() => {
+    if (currentUser?.mobile_number) {
+      setMobileNumber(currentUser.mobile_number);
+      setMobileSaved(true);
+    }
+  }, [currentUser?.mobile_number]);
+
+  // Save mobile number to users table
+  const handleSaveMobile = async () => {
+    if (!/^\d{10}$/.test(mobileNumber)) {
+      toast.error("Please enter a valid 10-digit mobile number");
+      return;
+    }
+    setSavingMobile(true);
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({ mobile_number: mobileNumber })
+        .eq("id", currentUser.id);
+      if (error) throw error;
+      toast.success("Mobile number saved successfully");
+      setMobileSaved(true);
+    } catch (error) {
+      toast.error("Failed to save mobile number");
+    } finally {
+      setSavingMobile(false);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -410,77 +434,112 @@ const FeeSlip = () => {
               </div>
             )}
 
+            {/* Mobile Number Section */}
+            {!mobileSaved && (
+              <div className="mb-6 border rounded-lg p-4 bg-yellow-50">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">
+                  Enter Your Mobile Number
+                </h3>
+                <div className="flex flex-col sm:flex-row gap-2 items-center">
+                  <Input
+                    type="tel"
+                    maxLength={10}
+                    minLength={10}
+                    pattern="[0-9]{10}"
+                    value={mobileNumber}
+                    onChange={(e) =>
+                      setMobileNumber(e.target.value.replace(/[^0-9]/g, ""))
+                    }
+                    placeholder="10-digit mobile number"
+                    className="w-full sm:w-64"
+                    disabled={savingMobile}
+                  />
+                  <Button
+                    onClick={handleSaveMobile}
+                    disabled={savingMobile || !/^\d{10}$/.test(mobileNumber)}
+                    className="w-full sm:w-auto"
+                  >
+                    {savingMobile ? "Saving..." : "Save Mobile Number"}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  This number will be used for important notifications.
+                </p>
+              </div>
+            )}
+
             {/* File Upload Section */}
-            <div className="mt-6 border rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">
-                Fee Receipt Document
-              </h3>
-
-              {previewUrl ? (
-                <div className="mb-4">
-                  <div className="relative border rounded-lg overflow-hidden">
-                    {/* PDF Preview */}
-                    <embed
-                      src={previewUrl}
-                      type="application/pdf"
-                      className="w-full h-64 mx-auto"
-                    />
-                    <button
-                      onClick={handleRemoveFile}
-                      className="absolute top-2 right-2 bg-red-100 text-red-500 p-1 rounded-full hover:bg-red-200"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+            {mobileSaved && (
+              <div className="mt-6 border rounded-lg p-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Fee Receipt Document
+                </h3>
+                {previewUrl ? (
+                  <div className="mb-4">
+                    <div className="relative border rounded-lg overflow-hidden">
+                      {/* PDF Preview */}
+                      <embed
+                        src={previewUrl}
+                        type="application/pdf"
+                        className="w-full h-64 mx-auto"
+                      />
+                      <button
+                        onClick={handleRemoveFile}
+                        className="absolute top-2 right-2 bg-red-100 text-red-500 p-1 rounded-full hover:bg-red-200"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {selectedFile?.name || "Uploaded receipt"}
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {selectedFile?.name || "Uploaded receipt"}
-                  </p>
-                </div>
-              ) : (
-                <div
-                  onClick={triggerFileInput}
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:bg-gray-50"
-                >
-                  <File className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">
-                    Click to upload or drag and drop
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    PDF only (max. 1MB)
-                  </p>
-                </div>
-              )}
-
-              <Input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-            </div>
+                ) : (
+                  <div
+                    onClick={triggerFileInput}
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:bg-gray-50"
+                  >
+                    <File className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">
+                      Click to upload or drag and drop
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      PDF only (max. 1MB)
+                    </p>
+                  </div>
+                )}
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+              </div>
+            )}
 
             <div className="flex justify-end space-x-4">
-              {feeStatus === "not_uploaded" || feeStatus === "rejected" ? (
-                <Button
-                  onClick={handleUploadFeeReceipt}
-                  disabled={uploading || !selectedFile}
-                  className="w-full md:w-auto"
-                >
-                  <FilePlus className="mr-2 h-4 w-4" />
-                  {uploading ? "Uploading..." : "Upload Fee Receipt"}
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={handleUploadFeeReceipt}
-                  disabled={uploading || !selectedFile}
-                  className="w-full md:w-auto"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  {uploading ? "Uploading..." : "Update Fee Receipt"}
-                </Button>
-              )}
+              {mobileSaved &&
+                (feeStatus === "not_uploaded" || feeStatus === "rejected" ? (
+                  <Button
+                    onClick={handleUploadFeeReceipt}
+                    disabled={uploading || !selectedFile}
+                    className="w-full md:w-auto"
+                  >
+                    <FilePlus className="mr-2 h-4 w-4" />
+                    {uploading ? "Uploading..." : "Upload Fee Receipt"}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={handleUploadFeeReceipt}
+                    disabled={uploading || !selectedFile}
+                    className="w-full md:w-auto"
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    {uploading ? "Uploading..." : "Update Fee Receipt"}
+                  </Button>
+                ))}
             </div>
 
             {feeStatus === "pending" && (
