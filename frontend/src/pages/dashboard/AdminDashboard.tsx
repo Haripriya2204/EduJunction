@@ -116,6 +116,30 @@ const COLORS = [
 ];
 const YEARS = ["I", "II", "III", "IV"];
 
+// Helper for better pie labels (avoids overlap)
+const RADIAN = Math.PI / 180;
+const renderPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name }: any) => {
+  // Skip very small slices (<1%)
+  if (percent < 0.01) return null;
+
+  const radius = outerRadius + 14; // position label outside the slice
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="#555"
+      textAnchor={x > cx ? "start" : "end"}
+      dominantBaseline="central"
+      style={{ fontSize: "12px" }}
+    >
+      {`${name} ${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
+
 const AdminDashboard = () => {
   const currentUser = authService.getCurrentUser();
   const [selectedYear, setSelectedYear] = useState<string>("all");
@@ -233,9 +257,10 @@ const AdminDashboard = () => {
 
               // Count unregistered students for this department and year
               const unregisteredCount = unregisteredStudents.filter(
-                (student) =>
-                  student.department === dept &&
-                  student.year.toString() === year
+                (student) => {
+                  const studentYearStr = student.year ? student.year.toString() : "Unknown";
+                  return student.department === dept && studentYearStr === year;
+                }
               ).length;
 
               return {
@@ -1006,9 +1031,7 @@ const AdminDashboard = () => {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }) =>
-                          `${name} ${(percent * 100).toFixed(0)}%`
-                        }
+                        label={renderPieLabel}
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
