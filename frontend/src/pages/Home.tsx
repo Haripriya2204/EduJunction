@@ -31,26 +31,24 @@ const Home = () => {
         <main className="flex-1 flex flex-col justify-center px-4 md:px-6 py-8 md:py-0">
           <div className="max-w-7xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             {/* Left: Text content */}
-            <div className="text-white text-center md:text-left space-y-6 mt-28">
+            <div className="text-white text-center md:text-left space-y-6 mt-28 mb-28">
               <h1 className="text-4xl md:text-5xl font-bold">
                 Welcome to{" "}
                 <span className="text-blue-300 block md:inline">
                   EDMIT - COURSE REGISTRATION
                 </span>
               </h1>
-              <p className="text-lg md:text-xl pb-6">
-                Streamline your educational journey with our comprehensive fee
-                management system.
-              </p>
-              <Link to="/login">
-                <Button
-                  size="lg"
-                  className="bg-white text-black hover:bg-white/90"
-                >
-                  Get Started
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
+              <div className="pt-10">
+                <Link to="/login">
+                  <Button
+                    size="lg"
+                    className="bg-white text-black hover:bg-white/90"
+                  >
+                    Get Started
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+              </div>
             </div>
 
             {/* Right: Logo placeholder */}
@@ -71,7 +69,7 @@ const Home = () => {
         <section className="py-12 md:py-16 px-2 md:px-4">
           <div className="max-w-5xl mx-auto text-center">
             <h2 className="text-3xl font-bold mb-10 text-white">
-              Key Features
+              MLRIT COLLEGE OF ENGINEERING
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="p-6 bg-white rounded-lg shadow-sm">
@@ -102,12 +100,10 @@ const Home = () => {
                 <div className="w-12 h-12 bg-edu-primary/10 rounded-lg flex items-center justify-center mb-4">
                   <FileText className="w-6 h-6 text-edu-primary" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">
-                  Document Management
-                </h3>
+                <h3 className="text-xl font-semibold mb-2">MLRIT</h3>
                 <p className="text-gray-600">
-                  Upload and manage important documents like fee receipts and
-                  certificates.
+                  MLR Institute of Technology (MLRIT) is located at Dundigal,
+                  Hyderabad, Telangana, India.
                 </p>
               </div>
             </div>
