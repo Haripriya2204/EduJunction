@@ -93,6 +93,16 @@ const DashboardLayout = () => {
           label: "Fee Slip",
           icon: <FileText className="h-5 w-5" />,
         },
+        {
+          path: "/dashboard/requests",
+          label: "My Requests",
+          icon: <Clock className="h-5 w-5" />,
+        },
+        {
+          path: "/dashboard/profile",
+          label: "Profile",
+          icon: <User className="h-5 w-5" />,
+        },
       ];
 
   // Handle submenus
