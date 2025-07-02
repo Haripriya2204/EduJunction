@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable prefer-const */
 /**
  * This file would typically contain database connection setup.
  * For this demo, we're using localStorage to simulate a database.
@@ -16,8 +18,10 @@ connectToDatabase();
 export const authService = {
   login: async (username: string, password: string) => {
     try {
-      // Verify that username and password are the same (roll number)
-      if (username !== password && username !== "admin") {
+      // Require username and password to be identical (roll-number rule).
+      // Previously the string "admin" was exempt, which inadvertently
+      // allowed anyone to login as an admin by typing "admin" twice.
+      if (username !== password) {
         throw new Error("Username and password must be your roll number");
       }
 

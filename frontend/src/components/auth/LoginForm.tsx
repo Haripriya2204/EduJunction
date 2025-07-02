@@ -33,23 +33,6 @@ const LoginForm = () => {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      // Hardcoded super admin login for demo purposes
-      if (data.username === "admin" && data.password === "admin") {
-        // Bypass for super admin login
-        localStorage.setItem(
-          "currentUser",
-          JSON.stringify({
-            role: "admin",
-            name: "Super Administrator",
-            email: "admin@edmit.com",
-            department: "Administration",
-          })
-        );
-        toast("Super Admin login successful!");
-        navigate("/dashboard");
-        return;
-      }
-
       // First check if this is an admin user
       const { data: adminUser, error: adminError } = await supabase
         .from("users")
