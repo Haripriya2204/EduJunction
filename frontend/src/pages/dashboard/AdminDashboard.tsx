@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useMemo } from "react";
 import {
   Card,
@@ -119,8 +120,8 @@ const YEARS = ["I", "II", "III", "IV"];
 // Helper for better pie labels (avoids overlap)
 const RADIAN = Math.PI / 180;
 const renderPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name }: any) => {
-  // Skip very small slices (<1%)
-  if (percent < 0.01) return null;
+  // Skip very small slices (<3%) to minimise overlap
+  if (percent < 0.03) return null;
 
   const radius = outerRadius + 14; // position label outside the slice
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -546,20 +547,41 @@ const AdminDashboard = () => {
       </div>
 
       <Tabs defaultValue="overview" className="mt-6">
-        <TabsList className="w-full mb-4 flex flex-wrap">
-          <TabsTrigger value="overview" className={isMobile ? "flex-1" : ""}>
+        <TabsList
+          className={`w-full mb-4 flex ${
+            isMobile
+              ? "overflow-x-auto whitespace-nowrap gap-2 scrollbar-hide"
+              : "flex-wrap"
+          }`}
+        >
+          <TabsTrigger
+            value="overview"
+            className={isMobile ? "min-w-[120px]" : ""}
+          >
             Overview
           </TabsTrigger>
-          <TabsTrigger value="yearly" className={isMobile ? "flex-1" : ""}>
+          <TabsTrigger
+            value="yearly"
+            className={isMobile ? "min-w-[120px]" : ""}
+          >
             Yearly Reports
           </TabsTrigger>
-          <TabsTrigger value="department" className={isMobile ? "flex-1" : ""}>
+          <TabsTrigger
+            value="department"
+            className={isMobile ? "min-w-[120px]" : ""}
+          >
             Department Reports
           </TabsTrigger>
-          <TabsTrigger value="charts" className={isMobile ? "flex-1" : ""}>
+          <TabsTrigger
+            value="charts"
+            className={isMobile ? "min-w-[120px]" : ""}
+          >
             Charts & Analytics
           </TabsTrigger>
-          <TabsTrigger value="detailed" className={isMobile ? "flex-1" : ""}>
+          <TabsTrigger
+            value="detailed"
+            className={isMobile ? "min-w-[120px]" : ""}
+          >
             Detailed View
           </TabsTrigger>
         </TabsList>
@@ -1002,7 +1024,7 @@ const AdminDashboard = () => {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={renderPieLabel}
+                        label={isMobile ? false : renderPieLabel}
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
