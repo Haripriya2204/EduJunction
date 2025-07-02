@@ -9,23 +9,19 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "../../components/ui/avatar";
-import NotificationBadge from "./NotificationBadge";
 import {
   BookUser,
   LogOut,
   User,
   BookOpen,
-  Ticket,
   FileText,
   Clock,
-  Layers,
-  LayoutDashboard,
   CalendarDays,
   Menu,
   ChevronDown,
   ChevronUp,
+  LayoutDashboard,
 } from "lucide-react";
-import { cn } from "../../lib/utils";
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
@@ -34,19 +30,14 @@ const DashboardLayout = () => {
   const isAdmin = authService.isAdmin();
   const user = authService.getCurrentUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [windowWidth, setWindowWidth] = useState<number>(window.innerWidth);
 
   useEffect(() => {
     setMounted(true);
 
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth);
-    };
-
-    window.addEventListener("resize", handleResize);
-
+    // No additional side-effects are needed here since we removed the
+    // persistent sidebar and no longer track viewport width.
     return () => {
-      window.removeEventListener("resize", handleResize);
+      /* no-op cleanup */
     };
   }, []);
 
@@ -62,10 +53,7 @@ const DashboardLayout = () => {
     navigate("/login");
   };
 
-  // Menu items based on user role
-  const isSuperAdmin = user?.role === "admin";
-  const isDepartmentAdmin = user?.role === "dept_admin";
-
+  // Menu items based on user role (unused helper vars removed)
   const menuItems = isAdmin
     ? [
         {
@@ -96,30 +84,14 @@ const DashboardLayout = () => {
       ]
     : [
         {
-          path: "/dashboard",
-          label: "Dashboard",
-          icon: <LayoutDashboard className="h-5 w-5" />,
-        },
-        {
           path: "/dashboard/courses",
           label: "My Courses",
           icon: <BookOpen className="h-5 w-5" />,
         },
         {
-          label: "Services",
-          icon: <Layers className="h-5 w-5" />,
-          subItems: [
-            {
-              path: "/dashboard/services/feeslip",
-              label: "Fee Slip",
-              icon: <FileText className="h-5 w-5" />,
-            },
-          ],
-        },
-        {
-          path: "/dashboard/requests",
-          label: "My Requests",
-          icon: <Clock className="h-5 w-5" />,
+          path: "/dashboard/services/feeslip",
+          label: "Fee Slip",
+          icon: <FileText className="h-5 w-5" />,
         },
       ];
 
@@ -128,12 +100,13 @@ const DashboardLayout = () => {
 
   useEffect(() => {
     // Check if current path matches any submenu
-    menuItems.forEach((item) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    menuItems.forEach((item: any) => {
       if ("subItems" in item) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const subItems = (item as any).subItems;
-        if (
-          subItems.some((subItem: any) => location.pathname === subItem.path)
-        ) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (subItems.some((subItem: any) => location.pathname === subItem.path)) {
           setExpandedMenu(item.label);
         }
       }
@@ -181,7 +154,9 @@ const DashboardLayout = () => {
 
                 {expandedMenu === item.label && (
                   <div className="pl-6 space-y-1 mb-3 animate-accordion-down">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                     {(item as any).subItems.map(
+                      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
                       (subItem: any, subIndex: number) => (
                         <NavLink
                           key={subIndex}
@@ -252,22 +227,10 @@ const DashboardLayout = () => {
     </>
   );
 
-  const isMobile = windowWidth < 768;
-
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      {/* Desktop Sidebar */}
-      <div
-        className={cn(
-          "hidden md:flex flex-col bg-white border-r",
-          isMobile ? "w-0" : "w-64"
-        )}
-      >
-        <SidebarContent />
-      </div>
-
-      {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between p-4 border-b bg-white w-full">
+    <div className="flex min-h-screen bg-gray-100 flex-col">
+      {/* Top bar with hamburger menu for all screen sizes */}
+      <div className="flex items-center justify-between p-4 border-b bg-white w-full">
         <button
           className="flex items-center focus:outline-none focus:ring-2 focus:ring-edu-primary rounded"
           onClick={() => navigate("/")}
@@ -290,7 +253,7 @@ const DashboardLayout = () => {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto p-4 md:p-6 pt-0 md:pt-6 w-full">
+      <main className="flex-1 overflow-auto p-4 md:p-6 pt-6 w-full">
         <div className="max-w-6xl mx-auto">
           <Outlet />
         </div>
