@@ -115,6 +115,9 @@ const StudentRequests = () => {
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
   const [selectedRequestForRejection, setSelectedRequestForRejection] =
     useState<AdminRequest | null>(null);
+  const [rejectionAction, setRejectionAction] = useState<
+    "rejected" | "on_hold" | null
+  >(null);
 
   // Initialize EmailJS
   useEffect(() => {
@@ -218,35 +221,40 @@ Edmit Team
     }
   };
 
-  const handleRejectWithComment = async () => {
-    if (!selectedRequestForRejection) return;
-
+  const handleRejectOrHoldWithComment = async () => {
+    if (!selectedRequestForRejection || !rejectionAction) return;
     setProcessing(selectedRequestForRejection.id);
     try {
       await adminSupabaseService.updateRequestStatus(
         selectedRequestForRejection.id,
-        "rejected",
+        rejectionAction,
         rejectionComment
       );
-
       await sendEmailNotification(
         selectedRequestForRejection,
-        "rejected",
+        rejectionAction,
         rejectionComment
       );
-
-      toast("Request rejected");
+      toast(
+        rejectionAction === "rejected"
+          ? "Request rejected"
+          : "Request put on hold"
+      );
       fetchRequests();
       setShowRejectionDialog(false);
       setRejectionComment("");
       setSelectedRequestForRejection(null);
-
+      setRejectionAction(null);
       if (detailsOpen) {
         setDetailsOpen(false);
       }
     } catch (error) {
-      console.error("Error rejecting request:", error);
-      toast("Failed to reject request");
+      console.error(`Error updating request:`, error);
+      toast(
+        rejectionAction === "rejected"
+          ? "Failed to reject request"
+          : "Failed to put request on hold"
+      );
     } finally {
       setProcessing(null);
     }
@@ -256,30 +264,26 @@ Edmit Team
     requestId: string,
     status: "approved" | "rejected" | "on_hold"
   ) => {
-    if (status === "rejected") {
+    if (status === "rejected" || status === "on_hold") {
       const request = requests.find((r) => r.id === requestId);
       if (request) {
         setSelectedRequestForRejection(request);
+        setRejectionAction(status);
         setShowRejectionDialog(true);
       }
       return;
     }
-
     setProcessing(requestId);
     try {
       await adminSupabaseService.updateRequestStatus(requestId, status);
-
       const request = requests.find((r) => r.id === requestId);
       if (request) {
         await sendEmailNotification(request, status);
       }
-
       toast(`Request ${status.replace("_", " ")}`);
-
       if (status === "approved") {
         toast("Fee slip approved. Student now has access to courses.");
       }
-
       fetchRequests();
       if (detailsOpen) {
         setDetailsOpen(false);
@@ -756,15 +760,23 @@ Edmit Team
       <Dialog open={showRejectionDialog} onOpenChange={setShowRejectionDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Fee Receipt</DialogTitle>
+            <DialogTitle>
+              {rejectionAction === "rejected"
+                ? "Reject Fee Receipt"
+                : "Put Fee Receipt On Hold"}
+            </DialogTitle>
             <DialogDescription>
-              Please provide a reason for rejecting this fee receipt. This will
-              be included in the email sent to the student.
+              Please provide a reason for{" "}
+              {rejectionAction === "rejected" ? "rejection" : "putting on hold"}
+              . This will be included in the email sent to the student and
+              stored in the system.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Textarea
-              placeholder="Enter rejection reason..."
+              placeholder={`Enter ${
+                rejectionAction === "rejected" ? "rejection" : "on hold"
+              } reason...`}
               value={rejectionComment}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                 setRejectionComment(e.target.value)
@@ -779,16 +791,25 @@ Edmit Team
                 setShowRejectionDialog(false);
                 setRejectionComment("");
                 setSelectedRequestForRejection(null);
+                setRejectionAction(null);
               }}
             >
               Cancel
             </Button>
             <Button
-              variant="destructive"
-              onClick={handleRejectWithComment}
+              variant={
+                rejectionAction === "rejected" ? "destructive" : "outline"
+              }
+              onClick={handleRejectOrHoldWithComment}
               disabled={!rejectionComment.trim() || !!processing}
             >
-              {processing ? "Rejecting..." : "Reject"}
+              {processing
+                ? rejectionAction === "rejected"
+                  ? "Rejecting..."
+                  : "Putting on hold..."
+                : rejectionAction === "rejected"
+                ? "Reject"
+                : "Put On Hold"}
             </Button>
           </DialogFooter>
         </DialogContent>

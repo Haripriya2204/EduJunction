@@ -186,8 +186,8 @@ export const adminSupabaseService = {
       reviewed_at: new Date().toISOString(),
     };
 
-    // Only add rejection_comment if status is rejected and comment is provided
-    if (status === "rejected" && rejectionComment) {
+    // Add rejection_comment if status is rejected or on_hold and comment is provided
+    if ((status === "rejected" || status === "on_hold") && rejectionComment) {
       updateData.rejection_comment = rejectionComment;
     }
 
@@ -233,5 +233,20 @@ export const adminSupabaseService = {
     return students.filter(
       (student) => !registeredSet.has(student.roll_number)
     );
+  },
+
+  // Update admin password
+  async updateAdminPassword(
+    userId: string,
+    newPassword: string
+  ): Promise<void> {
+    const { error } = await supabase
+      .from("users")
+      .update({ password: newPassword })
+      .eq("id", userId);
+    if (error) {
+      console.error("Error updating admin password:", error);
+      throw error;
+    }
   },
 };

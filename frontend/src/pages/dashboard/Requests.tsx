@@ -19,6 +19,7 @@ import {
 } from "../../components/ui/table";
 // @ts-ignore
 import requestService from "../../services/requestService";
+import { toast } from "sonner";
 
 const Requests = () => {
   const [requests, setRequests] = useState<Request[]>([]);
@@ -40,6 +41,16 @@ const Requests = () => {
     };
     loadRequests();
   }, [user?.id]);
+
+  // Show persistent toast on mount after refresh
+  useEffect(() => {
+    toast(
+      "If you just refreshed, please try logging out and logging back in to view the most updated status.",
+      {
+        duration: 10000, // 10 seconds, or set to Infinity for truly persistent if supported
+      }
+    );
+  }, []);
 
   // Get counts for each status, including fee status
   const pendingCount =
@@ -105,6 +116,12 @@ const Requests = () => {
         return (
           <Badge className="bg-yellow-500">
             <Clock className="h-3 w-3 mr-1" /> Pending
+          </Badge>
+        );
+      case "on_hold":
+        return (
+          <Badge className="bg-yellow-500">
+            <Clock className="h-3 w-3 mr-1" /> On Hold
           </Badge>
         );
       case "rejected":
@@ -240,49 +257,39 @@ const Requests = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">My Requests</h1>
-
-      <Tabs defaultValue="pending" className="w-full">
-        <TabsList className="grid grid-cols-3 mb-4">
-          <TabsTrigger value="pending">
-            Pending{" "}
-            <Badge variant="outline" className="ml-2">
-              {pendingCount}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="approved">
-            Approved{" "}
-            <Badge variant="outline" className="ml-2">
-              {approvedCount}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="rejected">
-            Rejected{" "}
-            <Badge variant="outline" className="ml-2">
-              {rejectedCount}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
-
-        <Card>
-          <CardContent className="pt-6">
-            <TabsContent value="pending">
-              {shouldShowFeeStatus("pending") && renderFeeStatusCard()}
-              {renderRequestsTable("pending")}
-            </TabsContent>
-
-            <TabsContent value="approved">
-              {shouldShowFeeStatus("approved") && renderFeeStatusCard()}
-              {renderRequestsTable("approved")}
-            </TabsContent>
-
-            <TabsContent value="rejected">
-              {shouldShowFeeStatus("rejected") && renderFeeStatusCard()}
-              {renderRequestsTable("rejected")}
-            </TabsContent>
-          </CardContent>
-        </Card>
-      </Tabs>
+      <h1 className="text-2xl font-bold text-gray-800 mb-6">
+        My Fee Receipt Status
+      </h1>
+      {user?.fee_status ? (
+        <>
+          {renderFeeStatusCard()}
+          {(user.fee_status === "rejected" || user.fee_status === "on_hold") &&
+            user.rejection_comment && (
+              <Card className="bg-red-50 border-red-200">
+                <CardContent className="py-4">
+                  <div className="font-semibold text-red-700 mb-1">
+                    {user.fee_status === "rejected"
+                      ? "Reason for Rejection"
+                      : "Reason for On Hold"}
+                  </div>
+                  <div className="text-red-800 whitespace-pre-line">
+                    {user.rejection_comment}
+                  </div>
+                  {user.fee_status === "rejected" && (
+                    <div className="mt-4 text-red-900 font-medium">
+                      Please upload the correct fee receipt to resolve this
+                      issue.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+        </>
+      ) : (
+        <div className="text-center text-gray-500">
+          No fee receipt status available.
+        </div>
+      )}
     </div>
   );
 };

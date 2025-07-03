@@ -66,6 +66,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import * as XLSX from "xlsx";
+import { toast } from "sonner";
 
 interface DepartmentStats {
   department: string;
@@ -119,7 +120,14 @@ const YEARS = ["I", "II", "III", "IV"];
 
 // Helper for better pie labels (avoids overlap)
 const RADIAN = Math.PI / 180;
-const renderPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name }: any) => {
+const renderPieLabel = ({
+  cx,
+  cy,
+  midAngle,
+  outerRadius,
+  percent,
+  name,
+}: any) => {
   // Skip very small slices (<3%) to minimise overlap
   if (percent < 0.03) return null;
 
@@ -163,6 +171,9 @@ const AdminDashboard = () => {
     const fetchDetailedStats = async () => {
       try {
         setLoading(true);
+        console.log(
+          "[AdminDashboard] Fetching users and unregistered students..."
+        );
 
         // Fetch all users with fee status
         const { data: users, error: usersError } =
@@ -175,6 +186,7 @@ const AdminDashboard = () => {
           console.error("Error fetching users:", usersError);
           return;
         }
+        console.log(`[AdminDashboard] Fetched ${users.length} users`);
 
         // Fetch unregistered students
         const unregisteredStudents =
@@ -182,6 +194,9 @@ const AdminDashboard = () => {
             isDeptAdmin ? adminDepartment || "" : "all",
             selectedYear !== "all" ? selectedYear : undefined
           );
+        console.log(
+          `[AdminDashboard] Fetched ${unregisteredStudents.length} unregistered students`
+        );
 
         // Group data by year and department
         const yearData: { [key: string]: { [key: string]: any[] } } = {};
@@ -219,6 +234,9 @@ const AdminDashboard = () => {
           departmentData[dept].push(user);
         });
 
+        // Log yearData for debugging
+        console.log("[AdminDashboard] yearData:", yearData);
+
         // Calculate statistics
         const yearStatsArray: YearStats[] = Object.keys(yearData).map(
           (year) => {
@@ -255,11 +273,12 @@ const AdminDashboard = () => {
                     break;
                 }
               });
-
               // Count unregistered students for this department and year
               const unregisteredCount = unregisteredStudents.filter(
                 (student) => {
-                  const studentYearStr = student.year ? student.year.toString() : "Unknown";
+                  const studentYearStr = student.year
+                    ? student.year.toString()
+                    : "Unknown";
                   return student.department === dept && studentYearStr === year;
                 }
               ).length;
@@ -297,6 +316,10 @@ const AdminDashboard = () => {
               departments,
             };
           }
+        );
+        console.log(
+          "[AdminDashboard] Processed yearStatsArray:",
+          yearStatsArray
         );
 
         setYearStats(yearStatsArray);
@@ -352,11 +375,16 @@ const AdminDashboard = () => {
             unregisteredStudents: unregisteredCount,
           };
         });
+        console.log(
+          "[AdminDashboard] Processed deptStatsArray:",
+          deptStatsArray
+        );
 
         setDepartmentStats(deptStatsArray);
 
         // Set detailed data for export
         setDetailedData(users as DetailedFeeData[]);
+        console.log("[AdminDashboard] Set detailedData for export.");
       } catch (error) {
         console.error("Error fetching detailed stats:", error);
         toast({
@@ -366,6 +394,7 @@ const AdminDashboard = () => {
         });
       } finally {
         setLoading(false);
+        console.log("[AdminDashboard] Data fetch and processing complete.");
       }
     };
 
@@ -624,9 +653,6 @@ const AdminDashboard = () => {
                         </div>
                       </CardContent>
                     </Card>
-
-                   
-                    
 
                     <Card>
                       <CardContent className="p-4">
@@ -920,7 +946,7 @@ const AdminDashboard = () => {
                           {deptStat.department}
                         </CardTitle>
                         <CardDescription>
-                          Total Students: {deptStat.totalStudents}
+                          Total Registered Users: {deptStat.totalStudents}
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-4">
