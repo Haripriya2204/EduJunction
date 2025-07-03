@@ -118,6 +118,9 @@ const Home = () => {
               <a href="/contact" className="text-gray-300 hover:text-white">
                 Contact
               </a>
+              <a href="/help" className="text-gray-300 hover:text-white">
+                Help
+              </a>
             </div>
           </div>
 
