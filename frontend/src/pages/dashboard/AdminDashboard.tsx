@@ -67,6 +67,7 @@ import {
 } from "recharts";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { supabase } from "../../lib/supabase";
 
 interface DepartmentStats {
   department: string;
@@ -175,12 +176,44 @@ const AdminDashboard = () => {
           "[AdminDashboard] Fetching users and unregistered students..."
         );
 
-        // Fetch all users with fee status
-        const { data: users, error: usersError } =
-          await adminSupabaseService.supabase
-            .from("users")
-            .select("*")
-            .eq("role", "student");
+        // Helper function to convert year to both formats for filtering (same as FeeReportsSection)
+        const getYearFilters = (year: string) => {
+          if (year === "all") return null;
+          const yearIndex = YEARS.indexOf(year);
+          if (yearIndex !== -1) {
+            // Convert Roman numeral to number (I=1, II=2, III=3, IV=4)
+            const yearNumber = (yearIndex + 1).toString();
+            return [year, yearNumber]; // Return both formats
+          }
+          return [year]; // If it's already a number, just use as is
+        };
+
+        const yearFilters = getYearFilters(selectedYear);
+
+        // Fetch users with proper filtering (same logic as FeeReportsSection)
+        let usersQuery = supabase
+          .from("users")
+          .select("*")
+          .eq("role", "student");
+
+        // Filter by department if department admin, or by selectedDepartment if super admin
+        if (isDeptAdmin && adminDepartment) {
+          usersQuery = usersQuery.eq("department", adminDepartment);
+        } else if (isSuperAdmin && selectedDepartment !== "all") {
+          usersQuery = usersQuery.eq("department", selectedDepartment);
+        }
+
+        // Add year filter if specified
+        if (yearFilters) {
+          if (yearFilters.length === 2) {
+            // Filter by both Roman numeral and number formats
+            usersQuery = usersQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
+          } else {
+            usersQuery = usersQuery.eq("year", yearFilters[0]);
+          }
+        }
+
+        const { data: users, error: usersError } = await usersQuery;
 
         if (usersError) {
           console.error("Error fetching users:", usersError);
@@ -188,15 +221,66 @@ const AdminDashboard = () => {
         }
         console.log(`[AdminDashboard] Fetched ${users.length} users`);
 
-        // Fetch unregistered students
-        const unregisteredStudents =
-          await adminSupabaseService.getUnregisteredStudents(
-            isDeptAdmin ? adminDepartment || "" : "all",
-            selectedYear !== "all" ? selectedYear : undefined
-          );
-        console.log(
-          `[AdminDashboard] Fetched ${unregisteredStudents.length} unregistered students`
+        // Fetch unregistered students with same logic as FeeReportsSection
+        let unregisteredQuery = supabase
+          .from("students25")
+          .select("roll_number, name, department, year, semester, email");
+
+        // Filter by department if department admin, or by selectedDepartment if super admin
+        if (isDeptAdmin && adminDepartment) {
+          unregisteredQuery = unregisteredQuery.eq("department", adminDepartment);
+        } else if (isSuperAdmin && selectedDepartment !== "all") {
+          unregisteredQuery = unregisteredQuery.eq("department", selectedDepartment);
+        }
+
+        // Add year filter if specified
+        if (yearFilters) {
+          if (yearFilters.length === 2) {
+            // Filter by both Roman numeral and number formats
+            unregisteredQuery = unregisteredQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
+          } else {
+            unregisteredQuery = unregisteredQuery.eq("year", yearFilters[0]);
+          }
+        }
+
+        const { data: students25Data, error: studentsError } = await unregisteredQuery;
+
+        if (studentsError) {
+          console.error("Error fetching students25:", studentsError);
+          return;
+        }
+
+        // Get registered roll numbers from the SAME DEPARTMENT to filter out
+        let registeredQuery = supabase
+          .from("users")
+          .select("roll_no")
+          .eq("role", "student");
+
+        // Filter by department if department admin, or by selectedDepartment if super admin
+        if (isDeptAdmin && adminDepartment) {
+          registeredQuery = registeredQuery.eq("department", adminDepartment);
+        } else if (isSuperAdmin && selectedDepartment !== "all") {
+          registeredQuery = registeredQuery.eq("department", selectedDepartment);
+        }
+
+        const { data: registeredRollNumbers, error: rollNumbersError } = await registeredQuery;
+
+        if (rollNumbersError) {
+          console.error("Error fetching registered roll numbers:", rollNumbersError);
+          return;
+        }
+
+        // Create a set of registered roll numbers for efficient lookup
+        const registeredRollSet = new Set((registeredRollNumbers as { roll_no: string }[]).map(u => u.roll_no));
+
+        // Filter out registered students - compare roll_number (students25) with roll_no (users)
+        const unregisteredStudents = (students25Data as any[]).filter(
+          (student) => !registeredRollSet.has(student.roll_number)
         );
+
+        console.log(`[AdminDashboard] Total students25: ${(students25Data as any[]).length}`);
+        console.log(`[AdminDashboard] Registered students in department: ${registeredRollSet.size}`);
+        console.log(`[AdminDashboard] Unregistered students: ${unregisteredStudents.length}`);
 
         // Group data by year and department
         const yearData: { [key: string]: { [key: string]: any[] } } = {};
@@ -206,38 +290,6 @@ const AdminDashboard = () => {
         users.forEach((user: any) => {
           const year = user.year || "Unknown";
           const dept = user.department || "Unknown";
-
-          // Filter by department if department admin
-          if (isDeptAdmin && adminDepartment && dept !== adminDepartment) {
-            return;
-          }
-
-          // Filter by selected department if super admin
-          if (
-            isSuperAdmin &&
-            selectedDepartment !== "all" &&
-            dept !== selectedDepartment
-          ) {
-            return;
-          }
-
-          // Filter by year if selected
-          if (selectedYear !== "all") {
-            // Handle both Roman numerals and numbers
-            const yearIndex = YEARS.indexOf(selectedYear);
-            if (yearIndex !== -1) {
-              // Convert Roman numeral to number for comparison
-              const yearNumber = (yearIndex + 1).toString();
-              if (year !== selectedYear && year !== yearNumber) {
-                return;
-              }
-            } else {
-              // If selectedYear is already a number, compare directly
-              if (year !== selectedYear) {
-                return;
-              }
-            }
-          }
 
           if (!yearData[year]) yearData[year] = {};
           if (!yearData[year][dept]) yearData[year][dept] = [];
@@ -286,6 +338,7 @@ const AdminDashboard = () => {
                     break;
                 }
               });
+
               // Count unregistered students for this department and year
               const unregisteredCount = unregisteredStudents.filter(
                 (student) => {
@@ -395,8 +448,11 @@ const AdminDashboard = () => {
 
         setDepartmentStats(deptStatsArray);
 
-        // Set detailed data for export
-        setDetailedData(users as DetailedFeeData[]);
+        // Set detailed data for export - only show data for admin's own department
+        const detailedDataForExport = isDeptAdmin && adminDepartment 
+          ? users.filter((user: any) => user.department === adminDepartment)
+          : users;
+        setDetailedData(detailedDataForExport as DetailedFeeData[]);
         console.log("[AdminDashboard] Set detailedData for export.");
       } catch (error) {
         console.error("Error fetching detailed stats:", error);
@@ -526,9 +582,14 @@ const AdminDashboard = () => {
           <h1 className="text-2xl font-bold text-gray-800">
             Detailed Reports Dashboard
           </h1>
-          {isDeptAdmin && (
+          {isDeptAdmin && adminDepartment && (
             <p className="text-sm text-gray-600 mt-1">
-              {adminDepartment} Department Administrator
+              Showing reports for {adminDepartment} department
+            </p>
+          )}
+          {isSuperAdmin && selectedDepartment !== "all" && (
+            <p className="text-sm text-gray-600 mt-1">
+              Showing reports for {selectedDepartment} department
             </p>
           )}
         </div>
@@ -552,7 +613,7 @@ const AdminDashboard = () => {
               value={selectedDepartment}
               onValueChange={setSelectedDepartment}
             >
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Select Department" />
               </SelectTrigger>
               <SelectContent>
@@ -1150,7 +1211,10 @@ const AdminDashboard = () => {
                 </Button>
               </CardTitle>
               <CardDescription>
-                Complete list of all student records with fee status
+                {isDeptAdmin && adminDepartment 
+                  ? `Complete list of student records for ${adminDepartment} department`
+                  : "Complete list of all student records with fee status"
+                }
               </CardDescription>
             </CardHeader>
             <CardContent>
