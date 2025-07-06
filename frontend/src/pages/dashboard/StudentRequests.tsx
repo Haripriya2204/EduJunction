@@ -346,8 +346,19 @@ Edmit Team
 
   // Filter requests by status
   const getFilteredRequests = () => {
-    let filtered = requests.filter((req) => req.status !== "not uploaded");
+    const filtered = requests.filter((req) => req.status !== "not uploaded");
     return filtered.filter((req) => req.status === activeTab);
+  };
+
+  // Get counts for each status
+  const getStatusCounts = () => {
+    const filtered = requests.filter((req) => req.status !== "not uploaded");
+    return {
+      pending: filtered.filter((req) => req.status === "pending").length,
+      approved: filtered.filter((req) => req.status === "approved").length,
+      rejected: filtered.filter((req) => req.status === "rejected").length,
+      on_hold: filtered.filter((req) => req.status === "on_hold").length,
+    };
   };
 
   // Pagination functions
@@ -517,10 +528,18 @@ Edmit Team
             className="transition-opacity duration-300"
           >
             <TabsList className="grid grid-cols-4 md:grid-cols-4 mb-4">
-              <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="approved">Approved</TabsTrigger>
-              <TabsTrigger value="rejected">Rejected</TabsTrigger>
-              <TabsTrigger value="on_hold">On Hold</TabsTrigger>
+              <TabsTrigger value="pending">
+                Pending ({getStatusCounts().pending})
+              </TabsTrigger>
+              <TabsTrigger value="approved">
+                Approved ({getStatusCounts().approved})
+              </TabsTrigger>
+              <TabsTrigger value="rejected">
+                Rejected ({getStatusCounts().rejected})
+              </TabsTrigger>
+              <TabsTrigger value="on_hold">
+                On Hold ({getStatusCounts().on_hold})
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="pending" className="space-y-4">
