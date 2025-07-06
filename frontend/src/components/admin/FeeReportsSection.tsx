@@ -95,6 +95,20 @@ const FeeReportsSection = ({
     const fetchReportData = async () => {
       setLoading(true);
       try {
+        // Helper function to convert year to both formats for filtering
+        const getYearFilters = (year: string) => {
+          if (year === "all") return null;
+          const yearIndex = YEARS.indexOf(year);
+          if (yearIndex !== -1) {
+            // Convert Roman numeral to number (I=1, II=2, III=3, IV=4)
+            const yearNumber = (yearIndex + 1).toString();
+            return [year, yearNumber]; // Return both formats
+          }
+          return [year]; // If it's already a number, just use as is
+        };
+
+        const yearFilters = getYearFilters(selectedYear);
+
         // Get total count of registered students
         let totalQuery = supabase
           .from("users")
@@ -109,11 +123,16 @@ const FeeReportsSection = ({
         }
 
         // Add year filter if specified
-        if (selectedYear !== "all") {
-          totalQuery = totalQuery.eq("year", selectedYear);
+        if (yearFilters) {
+          if (yearFilters.length === 2) {
+            // Filter by both Roman numeral and number formats
+            totalQuery = totalQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
+          } else {
+            totalQuery = totalQuery.eq("year", yearFilters[0]);
+          }
         }
 
-        const { data: totalData, error: totalError } = await totalQuery;
+        const { count: registeredCount, error: totalError } = await totalQuery;
 
         if (totalError) throw totalError;
 
@@ -136,8 +155,13 @@ const FeeReportsSection = ({
           }
 
           // Add year filter if specified
-          if (selectedYear !== "all") {
-            statusQuery = statusQuery.eq("year", selectedYear);
+          if (yearFilters) {
+            if (yearFilters.length === 2) {
+              // Filter by both Roman numeral and number formats
+              statusQuery = statusQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
+            } else {
+              statusQuery = statusQuery.eq("year", yearFilters[0]);
+            }
           }
 
           const { count, error } = await statusQuery;
@@ -164,8 +188,13 @@ const FeeReportsSection = ({
         }
 
         // Add year filter if specified
-        if (selectedYear !== "all") {
-          notUploadedQuery = notUploadedQuery.eq("year", selectedYear);
+        if (yearFilters) {
+          if (yearFilters.length === 2) {
+            // Filter by both Roman numeral and number formats
+            notUploadedQuery = notUploadedQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
+          } else {
+            notUploadedQuery = notUploadedQuery.eq("year", yearFilters[0]);
+          }
         }
 
         const { count: notUploadedCount, error: notUploadedError } =
@@ -173,9 +202,9 @@ const FeeReportsSection = ({
 
         if (notUploadedError) throw notUploadedError;
 
-        // Get count of unregistered students
+        // Get count of unregistered students (in students25 but not in users)
         let unregisteredQuery = supabase
-          .from("students")
+          .from("students25")
           .select("roll_number", { count: "exact" });
 
         // Filter by department if department admin, or by selectedDepartment if super admin
@@ -192,17 +221,25 @@ const FeeReportsSection = ({
         }
 
         // Add year filter if specified
-        if (selectedYear !== "all") {
-          unregisteredQuery = unregisteredQuery.eq("year", selectedYear);
+        if (yearFilters) {
+          if (yearFilters.length === 2) {
+            // Filter by both Roman numeral and number formats
+            unregisteredQuery = unregisteredQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
+          } else {
+            unregisteredQuery = unregisteredQuery.eq("year", yearFilters[0]);
+          }
         }
 
-        const { count: unregisteredCount, error: unregisteredError } =
+        const { count: students25Count, error: unregisteredError } =
           await unregisteredQuery;
 
         if (unregisteredError) throw unregisteredError;
 
+        // Calculate unregistered students: students25_count - users_count
+        const unregisteredCount = Math.max(0, (students25Count || 0) - (registeredCount || 0));
+
         // Create report data
-        const total = (totalData?.count || 0) + (unregisteredCount || 0); // Use .count for exact count
+        const total = (registeredCount || 0) + unregisteredCount;
         const report: FeeStatusReport = {
           year: selectedYear,
           total,
@@ -211,7 +248,7 @@ const FeeReportsSection = ({
           rejected: statusCounts.rejected || 0,
           on_hold: statusCounts.on_hold || 0,
           not_uploaded: notUploadedCount || 0,
-          unregistered: unregisteredCount || 0,
+          unregistered: unregisteredCount,
         };
 
         setReportData(report);
@@ -220,7 +257,7 @@ const FeeReportsSection = ({
         let detailedQuery = supabase
           .from("users")
           .select(
-            "id, name, roll_no, email, department, fee_status, payment_mode, transaction_number, bank_name, fee_receipt_url, created_at, updated_at"
+            "id, name, roll_no, email, department, fee_status, payment_mode, transaction_number, bank_name, fee_receipt_url, created_at, updated_at, year"
           )
           .eq("role", "student");
 
@@ -232,8 +269,13 @@ const FeeReportsSection = ({
         }
 
         // Add year filter if specified
-        if (selectedYear !== "all") {
-          detailedQuery = detailedQuery.eq("year", selectedYear);
+        if (yearFilters) {
+          if (yearFilters.length === 2) {
+            // Filter by both Roman numeral and number formats
+            detailedQuery = detailedQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
+          } else {
+            detailedQuery = detailedQuery.eq("year", yearFilters[0]);
+          }
         }
 
         const { data: detailed, error: detailedError } =
@@ -413,11 +455,10 @@ const FeeReportsSection = ({
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {reportData.unregistered - reportData.pending}
+                      {reportData.pending}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {reportData.unregistered} unregistered -{" "}
-                      {reportData.pending} fee receipts
+                      Fee receipts pending approval
                     </p>
                   </CardContent>
                 </Card>

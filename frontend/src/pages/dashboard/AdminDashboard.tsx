@@ -222,8 +222,21 @@ const AdminDashboard = () => {
           }
 
           // Filter by year if selected
-          if (selectedYear !== "all" && year !== selectedYear) {
-            return;
+          if (selectedYear !== "all") {
+            // Handle both Roman numerals and numbers
+            const yearIndex = YEARS.indexOf(selectedYear);
+            if (yearIndex !== -1) {
+              // Convert Roman numeral to number for comparison
+              const yearNumber = (yearIndex + 1).toString();
+              if (year !== selectedYear && year !== yearNumber) {
+                return;
+              }
+            } else {
+              // If selectedYear is already a number, compare directly
+              if (year !== selectedYear) {
+                return;
+              }
+            }
           }
 
           if (!yearData[year]) yearData[year] = {};

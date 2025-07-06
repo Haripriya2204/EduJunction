@@ -103,14 +103,30 @@ export const adminSupabaseService = {
 
     // Add year filter if specified
     if (year && year !== "all") {
-      query = query.eq("year", year);
+      // Handle both Roman numerals and numbers
+      const YEARS = ["I", "II", "III", "IV"];
+      const yearIndex = YEARS.indexOf(year);
+      if (yearIndex !== -1) {
+        // Convert Roman numeral to number for filtering
+        const yearNumber = (yearIndex + 1).toString();
+        query = query.or(`year.eq.${year},year.eq.${yearNumber}`);
+      } else {
+        // If year is already a number, filter by both formats
+        const yearNumber = parseInt(year);
+        if (!isNaN(yearNumber) && yearNumber >= 1 && yearNumber <= 4) {
+          const romanYear = YEARS[yearNumber - 1];
+          query = query.or(`year.eq.${year},year.eq.${romanYear}`);
+        } else {
+          query = query.eq("year", year);
+        }
+      }
     }
 
     const { data, error } = await query;
 
     if (error) throw error;
 
-    return (data as unknown as User[]).map((user) => ({
+    return (data as User[]).map((user) => ({
       id: user.id,
       type: "feeslip", // Assuming all requests from users table related to fees are feeslip
       status: user.fee_status,
@@ -212,7 +228,8 @@ export const adminSupabaseService = {
 
     if (userError) throw userError;
 
-    const registeredSet = new Set(registeredUsers.map((u) => u.roll_no));
+    // Specify the type for registeredUsers
+    const registeredSet = new Set((registeredUsers as { roll_no: string }[]).map((u) => u.roll_no));
 
     let query = supabase.from("students25").select("*");
 
@@ -223,14 +240,31 @@ export const adminSupabaseService = {
 
     // Add year filter if specified
     if (year && year !== "all") {
-      query = query.eq("year", year);
+      // Handle both Roman numerals and numbers
+      const YEARS = ["I", "II", "III", "IV"];
+      const yearIndex = YEARS.indexOf(year);
+      if (yearIndex !== -1) {
+        // Convert Roman numeral to number for filtering
+        const yearNumber = (yearIndex + 1).toString();
+        query = query.or(`year.eq.${year},year.eq.${yearNumber}`);
+      } else {
+        // If year is already a number, filter by both formats
+        const yearNumber = parseInt(year);
+        if (!isNaN(yearNumber) && yearNumber >= 1 && yearNumber <= 4) {
+          const romanYear = YEARS[yearNumber - 1];
+          query = query.or(`year.eq.${year},year.eq.${romanYear}`);
+        } else {
+          query = query.eq("year", year);
+        }
+      }
     }
 
     const { data: students, error: studentError } = await query;
 
     if (studentError) throw studentError;
 
-    return students.filter(
+    // Specify the type for students
+    return (students as Student[]).filter(
       (student) => !registeredSet.has(student.roll_number)
     );
   },
