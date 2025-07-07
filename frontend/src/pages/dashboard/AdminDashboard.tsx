@@ -522,13 +522,12 @@ const AdminDashboard = () => {
       rejected: dept.feeStatus.rejected,
       onHold: dept.feeStatus.on_hold,
       notUploaded: dept.feeStatus.notUploaded,
-      unregistered: dept.unregisteredStudents,
     }));
   };
 
   const getPieChartData = (stats: DepartmentStats[]) => {
     const total = stats.reduce(
-      (sum, dept) => sum + dept.totalStudents + dept.unregisteredStudents,
+      (sum, dept) => sum + dept.totalStudents,
       0
     );
     const approved = stats.reduce(
@@ -548,10 +547,6 @@ const AdminDashboard = () => {
       (sum, dept) => sum + dept.feeStatus.notUploaded,
       0
     );
-    const unregistered = stats.reduce(
-      (sum, dept) => sum + dept.unregisteredStudents,
-      0
-    );
 
     return [
       { name: "Approved", value: approved, color: "#4caf50" },
@@ -559,7 +554,6 @@ const AdminDashboard = () => {
       { name: "Rejected", value: rejected, color: "#f44336" },
       { name: "On Hold", value: onHold, color: "#2196f3" },
       { name: "Not Uploaded", value: notUploaded, color: "#9e9e9e" },
-      { name: "Unregistered", value: unregistered, color: "#673ab7" },
     ].filter((item) => item.value > 0);
   };
 
@@ -577,6 +571,9 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <div className="w-full bg-yellow-200 text-yellow-900 text-center py-2 font-semibold shadow-md z-20">
+        The course registration portal will be open until 12:00 midnight tonight. Thereafter, it will be closed.
+      </div>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
@@ -845,25 +842,6 @@ const AdminDashboard = () => {
                         </div>
                       </CardContent>
                     </Card>
-
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-2xl font-bold text-purple-600">
-                              {departmentStats.reduce(
-                                (sum, dept) => sum + dept.unregisteredStudents,
-                                0
-                              )}
-                            </div>
-                            <div className="text-sm text-gray-600">
-                              Unregistered
-                            </div>
-                          </div>
-                          <UserPlus className="h-8 w-8 text-purple-500" />
-                        </div>
-                      </CardContent>
-                    </Card>
                   </div>
                 </>
               )}
@@ -926,7 +904,6 @@ const AdminDashboard = () => {
                                 <TableHead>Rejected</TableHead>
                                 <TableHead>On Hold</TableHead>
                                 <TableHead>Not Uploaded</TableHead>
-                                <TableHead>Unregistered</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -968,14 +945,6 @@ const AdminDashboard = () => {
                                       className="border-gray-300 text-gray-700"
                                     >
                                       {dept.feeStatus.notUploaded}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge
-                                      variant="outline"
-                                      className="border-purple-300 text-purple-700"
-                                    >
-                                      {dept.unregisteredStudents}
                                     </Badge>
                                   </TableCell>
                                 </TableRow>
@@ -1068,15 +1037,6 @@ const AdminDashboard = () => {
                                 {deptStat.feeStatus.notUploaded}
                               </Badge>
                             </div>
-                            <div className="flex justify-between">
-                              <span className="text-sm">Unregistered:</span>
-                              <Badge
-                                variant="outline"
-                                className="border-purple-300 text-purple-700"
-                              >
-                                {deptStat.unregisteredStudents}
-                              </Badge>
-                            </div>
                           </div>
                         </div>
 
@@ -1084,8 +1044,7 @@ const AdminDashboard = () => {
                           <div className="flex justify-between text-sm">
                             <span>Total:</span>
                             <span className="font-medium">
-                              {deptStat.totalStudents +
-                                deptStat.unregisteredStudents}
+                              {deptStat.totalStudents}
                             </span>
                           </div>
                         </div>
@@ -1175,11 +1134,6 @@ const AdminDashboard = () => {
                         dataKey="notUploaded"
                         fill="#9e9e9e"
                         name="Not Uploaded"
-                      />
-                      <Bar
-                        dataKey="unregistered"
-                        fill="#673ab7"
-                        name="Unregistered"
                       />
                     </BarChart>
                   </ResponsiveContainer>
