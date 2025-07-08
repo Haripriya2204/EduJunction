@@ -21,6 +21,38 @@ const Help = () => {
           ></iframe>
         </div>
       </div>
+      {/* FAQ Section */}
+      <div className="w-full max-w-3xl mt-12 bg-white/80 rounded-lg shadow-lg p-6">
+        <h2 className="text-2xl font-bold mb-6 text-blue-900 text-center">
+          Frequently Asked Questions
+        </h2>
+        <div className="space-y-6">
+          <div>
+            <h3 className="font-semibold text-lg text-blue-800">
+              What is our username and password?
+            </h3>
+            <p className="text-gray-800">Initially it is your roll number</p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg text-blue-800">
+              When do we need to select courses?
+            </h3>
+            <p className="text-gray-800">
+              You have to wait until your hod approves your fee receipt
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-lg text-blue-800">
+              What is our utr number?
+            </h3>
+            <p className="text-gray-800">
+              The utr number or transaction id that would be mentioned in your
+              fee receipts and transaction details of your bank or in your upi
+              transactions
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
