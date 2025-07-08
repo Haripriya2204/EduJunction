@@ -61,6 +61,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
+import { supabase } from "../../lib/supabase";
 
 export interface AdminRequest {
   id: string;
@@ -110,7 +111,7 @@ const StudentRequests = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const currentUser = authService.getCurrentUser();
+  const [currentUser] = useState(authService.getCurrentUser());
   const [rejectionComment, setRejectionComment] = useState("");
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
   const [selectedRequestForRejection, setSelectedRequestForRejection] =
@@ -118,6 +119,7 @@ const StudentRequests = () => {
   const [rejectionAction, setRejectionAction] = useState<
     "rejected" | "on_hold" | null
   >(null);
+  const [unregisteredPage, setUnregisteredPage] = useState(1);
 
   // Initialize EmailJS
   useEffect(() => {
@@ -127,27 +129,141 @@ const StudentRequests = () => {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      let data = await adminSupabaseService.getAllRequestsSupabase(
-        selectedYear
-      );
-      let students = await adminSupabaseService.getUnregisteredStudents(
-        currentUser.department,
-        selectedYear
-      );
+      // Helper function to convert year to both formats for filtering (same as FeeReportsSection)
+      const getYearFilters = (year: string) => {
+        if (year === "all") return null;
+        const yearIndex = YEARS.indexOf(year);
+        if (yearIndex !== -1) {
+          // Convert Roman numeral to number (I=1, II=2, III=3, IV=4)
+          const yearNumber = (yearIndex + 1).toString();
+          return [year, yearNumber]; // Return both formats
+        }
+        return [year]; // If it's already a number, just use as is
+      };
 
-      // Filter requests and students based on admin's department if they are a department admin
-      if (
-        currentUser?.role === "admin" &&
-        currentUser?.roll_no?.startsWith("ADMIN_")
-      ) {
-        const adminDepartment = currentUser.department;
-        data = data.filter(
-          (request) => request.user?.department === adminDepartment
-        );
-        students = students.filter(
-          (student) => student.department === adminDepartment
-        );
+      const yearFilters = getYearFilters(selectedYear);
+
+      // Get current user info for department filtering
+      const isDeptAdmin = authService.isDepartmentAdmin();
+      const adminDepartment = authService.getAdminDepartment();
+      const isSuperAdmin = currentUser?.role === "admin" && !currentUser?.roll_no?.startsWith("ADMIN_");
+
+      // Fetch requests with proper filtering (same logic as FeeReportsSection)
+      let requestsQuery = supabase
+        .from("users")
+        .select(
+          "id, name, roll_no, email, department, fee_status, semester, payment_mode, transaction_number, bank_name, fee_receipt_url, created_at, updated_at, year"
+        )
+        .eq("role", "student") // Only students
+        .order("created_at", { ascending: false });
+
+      // Filter by department if department admin, or by selectedDepartment if super admin
+      if (isDeptAdmin && adminDepartment) {
+        requestsQuery = requestsQuery.eq("department", adminDepartment);
+      } else if (isSuperAdmin && currentUser?.department !== "all") {
+        requestsQuery = requestsQuery.eq("department", currentUser?.department);
       }
+
+      // Add year filter if specified
+      if (yearFilters) {
+        if (yearFilters.length === 2) {
+          // Filter by both Roman numeral and number formats
+          requestsQuery = requestsQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
+        } else {
+          requestsQuery = requestsQuery.eq("year", yearFilters[0]);
+        }
+      }
+
+      const { data: requestsData, error: requestsError } = await requestsQuery;
+
+      if (requestsError) throw requestsError;
+
+      // Transform to AdminRequest format
+      const data = (requestsData as any[]).map((user) => ({
+        id: user.id,
+        type: "feeslip",
+        status: user.fee_status,
+        user: {
+          id: user.id,
+          name: user.name,
+          rollNo: user.roll_no,
+          email: user.email,
+          department: user.department,
+        },
+        semester: user.semester,
+        payment_mode: user.payment_mode,
+        transaction_number: user.transaction_number,
+        bank_name: user.bank_name,
+        receipt_url: user.fee_receipt_url,
+        uploaded_at: user.created_at,
+        reviewed_at: user.updated_at,
+      }));
+
+      // Fetch unregistered students with same logic as FeeReportsSection
+      let unregisteredQuery = supabase
+        .from("students25")
+        .select("roll_number, name, department, year, semester, email");
+
+      // Filter by department if department admin, or by selectedDepartment if super admin
+      if (isDeptAdmin && adminDepartment) {
+        unregisteredQuery = unregisteredQuery.eq("department", adminDepartment);
+      } else if (isSuperAdmin && currentUser?.department !== "all") {
+        unregisteredQuery = unregisteredQuery.eq("department", currentUser?.department);
+      }
+
+      // Add year filter if specified
+      if (yearFilters) {
+        if (yearFilters.length === 2) {
+          // Filter by both Roman numeral and number formats
+          unregisteredQuery = unregisteredQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
+        } else {
+          unregisteredQuery = unregisteredQuery.eq("year", yearFilters[0]);
+        }
+      }
+
+      const { data: students25Data, error: studentsError } = await unregisteredQuery;
+
+      if (studentsError) throw studentsError;
+
+      // Get registered roll numbers from the SAME DEPARTMENT to filter out
+      let registeredQuery = supabase
+        .from("users")
+        .select("roll_no")
+        .eq("role", "student");
+
+      // Filter by department if department admin, or by selectedDepartment if super admin
+      if (isDeptAdmin && adminDepartment) {
+        registeredQuery = registeredQuery.eq("department", adminDepartment);
+      } else if (isSuperAdmin && currentUser?.department !== "all") {
+        registeredQuery = registeredQuery.eq("department", currentUser?.department);
+      }
+
+      const { data: registeredRollNumbers, error: rollNumbersError } = await registeredQuery;
+
+      if (rollNumbersError) throw rollNumbersError;
+
+      // Create a set of registered roll numbers for efficient lookup
+      const registeredRollSet = new Set((registeredRollNumbers as { roll_no: string }[]).map(u => u.roll_no));
+
+      // Debug: Log some sample data to verify the comparison
+      console.log("Sample registered roll numbers:", Array.from(registeredRollSet).slice(0, 5));
+      console.log("Sample students25 roll numbers:", (students25Data as any[]).slice(0, 5).map(s => s.roll_number));
+
+      // Filter out registered students - compare roll_number (students25) with roll_no (users)
+      const students = (students25Data as any[]).filter(
+        (student) => !registeredRollSet.has(student.roll_number)
+      ).map(student => ({
+        roll_number: student.roll_number,
+        name: student.name,
+        year: student.year,
+        semester: student.semester,
+        email: student.email,
+        department: student.department,
+      }));
+
+      console.log(`Total students25: ${(students25Data as any[]).length}`);
+      console.log(`Registered students in department: ${registeredRollSet.size}`);
+      console.log(`Unregistered students: ${students.length}`);
 
       setRequests(data);
       setUnregisteredStudents(students);
@@ -162,6 +278,7 @@ const StudentRequests = () => {
   useEffect(() => {
     fetchRequests();
     setCurrentPage(1); // Reset to first page when tab changes
+    setUnregisteredPage(1); // Reset unregistered students page
   }, [activeTab, selectedYear]);
 
   const sendEmailNotification = async (
@@ -346,8 +463,20 @@ Edmit Team
 
   // Filter requests by status
   const getFilteredRequests = () => {
-    let filtered = requests.filter((req) => req.status !== "not uploaded");
+    const filtered = requests.filter((req) => req.status !== "not uploaded");
     return filtered.filter((req) => req.status === activeTab);
+  };
+
+  // Get counts for each status
+  const getStatusCounts = () => {
+    // Don't filter out "not uploaded" since we're now only fetching students
+    // and want to show all statuses like FeeReportsSection
+    return {
+      pending: requests.filter((req) => req.status === "pending").length,
+      approved: requests.filter((req) => req.status === "approved").length,
+      rejected: requests.filter((req) => req.status === "rejected").length,
+      on_hold: requests.filter((req) => req.status === "on_hold").length,
+    };
   };
 
   // Pagination functions
@@ -363,6 +492,10 @@ Edmit Team
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
+  };
+
+  const handleUnregisteredPageChange = (newPage: number) => {
+    setUnregisteredPage(newPage);
   };
 
   const handlePreview = (url: string) => {
@@ -517,10 +650,18 @@ Edmit Team
             className="transition-opacity duration-300"
           >
             <TabsList className="grid grid-cols-4 md:grid-cols-4 mb-4">
-              <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="approved">Approved</TabsTrigger>
-              <TabsTrigger value="rejected">Rejected</TabsTrigger>
-              <TabsTrigger value="on_hold">On Hold</TabsTrigger>
+              <TabsTrigger value="pending">
+                Pending ({getStatusCounts().pending})
+              </TabsTrigger>
+              <TabsTrigger value="approved">
+                Approved ({getStatusCounts().approved})
+              </TabsTrigger>
+              <TabsTrigger value="rejected">
+                Rejected ({getStatusCounts().rejected})
+              </TabsTrigger>
+              <TabsTrigger value="on_hold">
+                On Hold ({getStatusCounts().on_hold})
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="pending" className="space-y-4">
@@ -853,6 +994,42 @@ Edmit Team
     );
   }
 
+  function renderUnregisteredPagination(totalItems: number) {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex items-center justify-between mt-4">
+        <div className="text-sm text-gray-600">
+          Showing {(unregisteredPage - 1) * ITEMS_PER_PAGE + 1} to{" "}
+          {Math.min(unregisteredPage * ITEMS_PER_PAGE, totalItems)} of {totalItems}{" "}
+          items
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleUnregisteredPageChange(unregisteredPage - 1)}
+            disabled={unregisteredPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm">
+            Page {unregisteredPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleUnregisteredPageChange(unregisteredPage + 1)}
+            disabled={unregisteredPage === totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   function renderUnregisteredStudents() {
     if (loading) {
       return (
@@ -873,7 +1050,10 @@ Edmit Team
       return null;
     }
 
-    const paginatedStudents = getPaginatedData(unregisteredStudents);
+    // Use separate pagination for unregistered students
+    const startIndex = (unregisteredPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedStudents = unregisteredStudents.slice(startIndex, endIndex);
 
     return (
       <div className="mt-6">
@@ -940,7 +1120,7 @@ Edmit Team
             </CardContent>
           </Card>
         ))}
-        {renderPagination(unregisteredStudents.length)}
+        {renderUnregisteredPagination(unregisteredStudents.length)}
       </div>
     );
   }

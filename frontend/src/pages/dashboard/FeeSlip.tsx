@@ -366,7 +366,7 @@ const FeeSlip = () => {
                       {currentUser?.department}
                     </dd>
                   </div>
-                </dl>
+                  </dl>
               </div>
             </div>
 

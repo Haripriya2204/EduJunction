@@ -3,6 +3,9 @@ import React from "react";
 const Help = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-pink-300 via-blue-600 to-blue-800 py-12 px-4">
+      <div className="w-full bg-yellow-200 text-yellow-900 text-center py-2 font-semibold shadow-md z-20">
+        The course registration portal will be open until 12:00 midnight tonight. Thereafter, it will be closed.
+      </div>
       <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center text-blue-100 drop-shadow-lg">
         Student Registration Process
       </h1>

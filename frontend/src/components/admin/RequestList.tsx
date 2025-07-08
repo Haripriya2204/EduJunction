@@ -12,6 +12,8 @@ import {
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import Modal from "../../components/ui/Modal";
+import { authService } from "../../services/api";
+import { supabase } from "../../lib/supabase";
 
 interface FeeReceiptRequestData {
   id: string;
@@ -46,9 +48,70 @@ const RequestList = () => {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      // Fetch pending fee slip requests directly from Supabase
-      const feeSlipRequests =
-        await adminSupabaseService.getPendingFeeSlipRequests();
+      
+      // Get admin's department if they are a department admin
+      const adminDepartment = authService.getAdminDepartment();
+      const isDeptAdmin = authService.isDepartmentAdmin();
+      const currentUser = authService.getCurrentUser();
+      const isSuperAdmin = currentUser?.role === "admin" && !currentUser?.roll_no?.startsWith("ADMIN_");
+
+      // Fetch pending fee slip requests with proper filtering (same logic as FeeReportsSection)
+      let query = supabase
+        .from("users")
+        .select(
+          `
+          id,
+          name,
+          roll_no,
+          email,
+          department,
+          fee_status,
+          semester,
+          payment_mode,
+          transaction_number,
+          bank_name,
+          fee_receipt_url,
+          created_at
+        `
+        )
+        .eq("role", "student")
+        .eq("fee_status", "pending")
+        .order("created_at", { ascending: false });
+
+      // Filter by department if department admin, or by selectedDepartment if super admin
+      if (isDeptAdmin && adminDepartment) {
+        query = query.eq("department", adminDepartment);
+      } else if (isSuperAdmin && currentUser?.department !== "all") {
+        query = query.eq("department", currentUser?.department);
+      }
+
+      const { data, error: queryError } = await query;
+
+      if (queryError) throw queryError;
+
+      // Transform to FeeReceiptRequestData format
+      const feeSlipRequests = (data as any[]).map((user) => ({
+        id: user.id,
+        userId: user.id,
+        type: "feeslip",
+        status: user.fee_status,
+        details: {
+          semester: user.semester || "",
+          payment_mode: user.payment_mode || "",
+          transaction_number: user.transaction_number,
+          bank_name: user.bank_name,
+          fee_receipt_url: user.fee_receipt_url || "",
+        },
+        createdAt: user.created_at,
+        updatedAt: user.updated_at,
+        user: {
+          id: user.id,
+          name: user.name,
+          roll_no: user.roll_no,
+          email: user.email,
+        },
+      }));
+
       setRequests(feeSlipRequests);
       setError(null);
     } catch (err: any) {
