@@ -4,6 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "../../lib/supabase";
+
+// Flag to temporarily disable student logins
+const STUDENT_LOGINS_DISABLED = true;
 import {
   Form,
   FormControl,
@@ -48,6 +51,15 @@ const LoginForm = () => {
           `${adminUser.department} Department Admin login successful!`
         );
         navigate("/dashboard");
+        return;
+      }
+
+      // Check if student logins are disabled
+      if (STUDENT_LOGINS_DISABLED) {
+        toast.error(
+          "Student services have been paused temporarily. Please try again later."
+        );
+        setIsLoading(false);
         return;
       }
 
