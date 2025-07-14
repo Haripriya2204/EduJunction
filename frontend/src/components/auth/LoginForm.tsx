@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "../../lib/supabase";
 
 // Flag to temporarily disable student logins
-const STUDENT_LOGINS_DISABLED = false;
+const STUDENT_LOGINS_DISABLED = true;
 import {
   Form,
   FormControl,
