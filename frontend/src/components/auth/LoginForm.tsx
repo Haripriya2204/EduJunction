@@ -7,6 +7,9 @@ import { supabase } from "../../lib/supabase";
 
 // Flag to temporarily disable student logins
 const STUDENT_LOGINS_DISABLED = false;
+
+// Flag to disable logins for roll numbers starting with "23" or "22"
+const DISABLE_LOGINS_FOR_22_23 = true;
 import {
   Form,
   FormControl,
@@ -58,6 +61,18 @@ const LoginForm = () => {
       if (STUDENT_LOGINS_DISABLED) {
         toast.error(
           "Student services have been paused temporarily. Please try again later."
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if logins for roll numbers starting with "23" or "22" are disabled
+      if (
+        DISABLE_LOGINS_FOR_22_23 &&
+        (data.username.startsWith("23") || data.username.startsWith("22"))
+      ) {
+        toast.error(
+          "Logins for 2nd and 3rd years are temporarily disabled. Please try again later."
         );
         setIsLoading(false);
         return;
