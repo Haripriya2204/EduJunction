@@ -74,6 +74,8 @@ npm run dev
 
 Open your browser and visit `http://localhost:5173` to view the app.
 ```
+## I want to use a custom domain - is that possible?
+We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: Custom domains
 
 ## 🚀 How can I deploy this project?
 
@@ -95,7 +97,6 @@ npm run build
 # Serve the build locally to test
 npm run preview
 ```
-
 ## 📄 License
 
 This project is intended for academic and educational use only.  
