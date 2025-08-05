@@ -1,26 +1,63 @@
-# Welcome to your Lovable project
+# Academic Catalogue Hub 📘
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/a3fca9a7-3b6d-48f1-98b9-78e8d6a6cb1e
+**Title**: Academic Catalogue Hub  
+**Repository**: EduJunction  
+**Project Type**: Web-based College Academic Management System  
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## What is this project?
 
-**Use Lovable**
+**Academic Catalogue Hub** is a centralized web platform designed to simplify and automate the college fee and course registration process. It provides role-based access for students, faculty, and administrators to manage semester-wise registrations, upload documents, and validate fee submissions.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/a3fca9a7-3b6d-48f1-98b9-78e8d6a6cb1e) and start prompting.
+> The user interface was styled using a modern UI framework, adapted from a template(Lovable) for faster and consistent development.
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## Features
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- 📥 Upload fee receipts and documents
+- ✅ Admin-side verification for access control
+- 📚 Semester-wise course registration (elective & default)
+- 👥 Role-based login and dashboards
+- 📊 Error reduction via automation
+- 🔐 Compliance with institutional rules
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## ⚙️ Usage
+
+- **Students**:
+  - Login and register semester courses.
+  - Upload fee receipt and verification documents.
+  - Track registration status.
+
+- **Administrators**:
+  - Review and validate student documents.
+  - Grant access to courses post-verification.
+  - Monitor student progress and compliance.
+
+---
+
+## 🧑‍💻 Tech Stack
+
+- **Frontend**: React.js, TypeScript, Tailwind CSS, Shadcn-UI, Vite
+- **Backend**: Node.js
+- **Database**: Supabase (PostgreSQL)
+- **Version Control**: Git, GitHub
+
+---
+
+
+## How can I edit this project?
+
+There are several ways to work on this project:
+
+### Use your preferred IDE
+
+You can clone this repo and work locally.
 
 ```sh
 # Step 1: Clone the repository using the project's Git URL.
@@ -34,36 +71,35 @@ npm i
 
 # Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
+
+Open your browser and visit `http://localhost:5173` to view the app.
 ```
 
-**Edit a file directly in GitHub**
+## 🚀 How can I deploy this project?
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+You can deploy this project using platforms like:
 
-**Use GitHub Codespaces**
+- [Netlify](https://www.netlify.com/)
+- [Vercel](https://vercel.com/)
+- [Render](https://render.com/)
+- [GitHub Pages](https://pages.github.com/) *(for frontend only)*
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+> Make sure to configure environment variables and production build settings as required by the platform.
 
-## What technologies are used for this project?
+For a quick deploy:
 
-This project is built with .
+```sh
+# Build the project
+npm run build
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Serve the build locally to test
+npm run preview
+```
 
-## How can I deploy this project?
+## 📄 License
 
-Simply open [Lovable](https://lovable.dev/projects/a3fca9a7-3b6d-48f1-98b9-78e8d6a6cb1e) and click on Share -> Publish.
+This project is intended for academic and educational use only.  
+Please do not redistribute or use for commercial purposes without permission.
 
-## I want to use a custom domain - is that possible?
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+
