@@ -9,7 +9,7 @@ import { supabase } from "../../lib/supabase";
 const STUDENT_LOGINS_DISABLED = false;
 
 // Flag to disable logins for roll numbers starting with "23" or "22"
-const DISABLE_LOGINS_FOR_22_23 = true;
+const DISABLE_LOGINS_FOR_22_23 = false;
 import {
   Form,
   FormControl,
