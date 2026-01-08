@@ -52,13 +52,26 @@ npm run dev
 
 ## What technologies are used for this project?
 
-This project is built with .
+This project is built with:
 
-- Vite
-- TypeScript
-- React
+- Vite 7.3.1
+- TypeScript 5.5.3
+- React 19.2.3 (Latest - Protected against react2shell exploit)
+- React DOM 19.2.3
 - shadcn-ui
 - Tailwind CSS
+- Supabase (Backend)
+
+## Security Updates
+
+This project has been upgraded to React 19.2.3 to protect against the react2shell exploit and other security vulnerabilities. The upgrade includes:
+
+- ✅ React 19.2.3 (latest stable)
+- ✅ React DOM 19.2.3 
+- ✅ Updated TypeScript types for React 19
+- ✅ Vite 7.3.1 with React 19 compatibility
+- ✅ Security audit fixes applied
+- ✅ Modern React APIs (createRoot) already in use
 
 ## How can I deploy this project?
 
