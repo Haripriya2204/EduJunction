@@ -3,9 +3,7 @@ import React from "react";
 const About = () => {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <div className="w-full bg-yellow-200 text-yellow-900 text-center py-2 font-semibold shadow-md z-20">
-        The course registration portal will be open until 12:00 midnight tonight. Thereafter, it will be closed.
-      </div>
+
       <div className="container mx-auto py-12 px-4">
         <div className="bg-gray-800 p-8 rounded-lg shadow-lg">
           <h1 className="text-4xl font-bold mb-6 text-blue-500">About EDMIT</h1>

@@ -27,10 +27,7 @@ const Home = () => {
           </div>
         </header>
 
-        {/* Notification Banner */}
-        <div className="w-full bg-yellow-200 text-yellow-900 text-center py-2 font-semibold shadow-md z-20">
-          The course registration portal will be open until 12:00 midnight tonight. Thereafter, it will be closed.
-        </div>
+
 
         {/* Hero Section */}
         <main className="flex-1 flex flex-col justify-center px-4 md:px-6 py-8 md:py-0">
