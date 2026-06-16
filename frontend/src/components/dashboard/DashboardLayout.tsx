@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
   LayoutDashboard,
+  MessageSquare,
 } from "lucide-react";
 
 const DashboardLayout = () => {
@@ -97,6 +98,11 @@ const DashboardLayout = () => {
           path: "/dashboard/requests",
           label: "My Requests",
           icon: <Clock className="h-5 w-5" />,
+        },
+        {
+          path: "/dashboard/support",
+          label: "Support & Issues",
+          icon: <MessageSquare className="h-5 w-5" />,
         },
         {
           path: "/dashboard/profile",

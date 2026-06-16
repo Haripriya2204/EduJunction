@@ -36,6 +36,17 @@ export const authService = {
         throw new Error("Invalid roll number");
       }
 
+      // Check if student is blocked before attempting login
+      const { data: userBlockStatus, error: blockCheckError } = await supabase
+        .from("users")
+        .select("blocked, block_reason")
+        .eq("username", username)
+        .single();
+
+      if (!blockCheckError && userBlockStatus?.blocked) {
+        throw new Error("BLOCKED_USER");
+      }
+
       // Try to sign in first
       let { data: authData, error: authError } =
         await supabase.auth.signInWithPassword({

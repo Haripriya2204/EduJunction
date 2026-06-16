@@ -22,6 +22,7 @@ import Profile from "./pages/dashboard/Profile";
 import Courses from "./pages/dashboard/Courses";
 import FeeSlip from "./pages/dashboard/FeeSlip";
 import Requests from "./pages/dashboard/Requests";
+import SupportIssues from "./pages/dashboard/SupportIssues";
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
 import StudentRequests from "./pages/dashboard/StudentRequests";
 import Events from "./pages/dashboard/Events";
@@ -69,6 +70,7 @@ const App = () => {
               <Route path="courses" element={<Courses />} />
               <Route path="services/feeslip" element={<FeeSlip />} />
               <Route path="requests" element={<Requests />} />
+              <Route path="support" element={<SupportIssues />} />
 
               {/* Admin routes */}
               <Route path="admin" element={<AdminDashboard />} />

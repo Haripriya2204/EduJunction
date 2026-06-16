@@ -97,7 +97,15 @@ const LoginForm = () => {
       console.error("Login error:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Failed to login";
-      toast.error(errorMessage);
+      
+      // Handle blocked user error with specific message
+      if (errorMessage === "BLOCKED_USER") {
+        toast.error("Your account has been blocked. Please meet the HOD to obtain login access.", {
+          duration: 5000,
+        });
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
