@@ -554,6 +554,42 @@ const Courses = () => {
         </div>
       </div>
 
+      {/* Fee Receipt Upload Banner */}
+      {(feeStatus === "not_uploaded" || feeStatus === "rejected") && (
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 shadow-lg">
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-1">
+                  <AlertCircle className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-blue-900 mb-1">
+                    {feeStatus === "rejected" 
+                      ? "Fee Receipt Rejected - Action Required"
+                      : "Upload Fee Receipt to Access Courses"}
+                  </h3>
+                  <p className="text-blue-800">
+                    {feeStatus === "rejected"
+                      ? "Your previous fee receipt was rejected. Please upload a valid fee receipt to get access to your latest semester's courses."
+                      : "Please upload your fee receipt to get access to your latest semester's courses and unlock all features."}
+                  </p>
+                </div>
+              </div>
+              <Button
+                asChild
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md whitespace-nowrap"
+              >
+                <a href="/dashboard/services/feeslip">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Upload Fee Receipt
+                </a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {!selectedSemester ? (
         <Card className="bg-yellow-50 border-yellow-200 mb-6">
           <CardContent className="pt-6">
