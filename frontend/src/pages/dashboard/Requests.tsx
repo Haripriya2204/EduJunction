@@ -8,7 +8,14 @@ import {
 } from "../../components/ui/tabs";
 import { Badge } from "../../components/ui/badge";
 import { Clock, CheckCircle2, XCircle, RefreshCw, Receipt } from "lucide-react";
-import { authService, Request } from "../../services/api";
+import {
+  authService,
+  studentService,
+  Request,
+  FeeReceiptRecord,
+} from "../../services/api";
+import { useAcademicYear } from "../../contexts/AcademicYearContext";
+import AcademicYearPicker from "../../components/dashboard/AcademicYearPicker";
 import {
   Table,
   TableBody,
@@ -25,6 +32,9 @@ const Requests = () => {
   const [requests, setRequests] = useState<Request[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const user = authService.getCurrentUser();
+  const { academicYear } = useAcademicYear();
+  const [feeReceipt, setFeeReceipt] = useState<FeeReceiptRecord | null>(null);
+  const [feeStatus, setFeeStatus] = useState<string>("not_uploaded");
 
   useEffect(() => {
     const loadRequests = async () => {
@@ -42,6 +52,23 @@ const Requests = () => {
     loadRequests();
   }, [user?.id]);
 
+  // Fetch the fee receipt for the selected academic year so previous-year
+  // receipts stay viewable here.
+  useEffect(() => {
+    const loadFeeReceipt = async () => {
+      try {
+        const { status, receipt } = await studentService.getFeeReceiptStatus(
+          academicYear
+        );
+        setFeeStatus(status);
+        setFeeReceipt(receipt);
+      } catch (error) {
+        console.error("Error fetching fee receipt:", error);
+      }
+    };
+    loadFeeReceipt();
+  }, [user?.id, academicYear]);
+
   // Show persistent toast on mount after refresh
   useEffect(() => {
     toast(
@@ -55,13 +82,13 @@ const Requests = () => {
   // Get counts for each status, including fee status
   const pendingCount =
     requests.filter((req) => req.status.toLowerCase() === "pending").length +
-    (user?.fee_status?.toLowerCase() === "pending" ? 1 : 0);
+    (feeStatus.toLowerCase() === "pending" ? 1 : 0);
   const approvedCount =
     requests.filter((req) => req.status.toLowerCase() === "approved").length +
-    (user?.fee_status?.toLowerCase() === "approved" ? 1 : 0);
+    (feeStatus.toLowerCase() === "approved" ? 1 : 0);
   const rejectedCount =
     requests.filter((req) => req.status.toLowerCase() === "rejected").length +
-    (user?.fee_status?.toLowerCase() === "rejected" ? 1 : 0);
+    (feeStatus.toLowerCase() === "rejected" ? 1 : 0);
 
   // Get requests filtered by status
   const getFilteredRequests = (status: string) => {
@@ -142,54 +169,54 @@ const Requests = () => {
   };
 
   const renderFeeStatusCard = () => {
-    if (!user?.fee_status) return null;
-
     return (
       <Card className="mb-6">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Receipt className="h-5 w-5 text-gray-500" />
-              <span className="font-medium">Fee Receipt Status</span>
+              <span className="font-medium">
+                Fee Receipt Status ({academicYear})
+              </span>
             </div>
-            {getFeeStatusBadge(user.fee_status)}
+            {getFeeStatusBadge(feeStatus)}
           </div>
 
           <div className="space-y-2 text-sm text-gray-600">
             <div className="flex items-center gap-2">
               <span className="font-medium">Student Name:</span>
-              <span>{user.name}</span>
+              <span>{user?.name}</span>
             </div>
-            {user.approved_semester && (
+            {feeReceipt?.semester && (
               <div className="flex items-center gap-2">
-                <span className="font-medium">Approved Semester:</span>
-                <span>{user.approved_semester}</span>
+                <span className="font-medium">Semester:</span>
+                <span>{feeReceipt.semester}</span>
               </div>
             )}
-            {user.payment_mode && (
+            {feeReceipt?.payment_mode && (
               <div className="flex items-center gap-2">
                 <span className="font-medium">Payment Mode:</span>
-                <span className="capitalize">{user.payment_mode}</span>
+                <span className="capitalize">{feeReceipt.payment_mode}</span>
               </div>
             )}
-            {user.transaction_number && (
+            {feeReceipt?.transaction_number && (
               <div className="flex items-center gap-2">
                 <span className="font-medium">Transaction Number:</span>
-                <span>{user.transaction_number}</span>
+                <span>{feeReceipt.transaction_number}</span>
               </div>
             )}
-            {user.bank_name && (
+            {feeReceipt?.bank_name && (
               <div className="flex items-center gap-2">
                 <span className="font-medium">Bank Name:</span>
-                <span>{user.bank_name}</span>
+                <span>{feeReceipt.bank_name}</span>
               </div>
             )}
           </div>
 
-          {user.fee_receipt_url && (
+          {feeReceipt?.file_url && (
             <div className="mt-4">
               <a
-                href={user.fee_receipt_url}
+                href={feeReceipt.file_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-600 hover:underline"
@@ -201,11 +228,6 @@ const Requests = () => {
         </CardContent>
       </Card>
     );
-  };
-
-  const shouldShowFeeStatus = (tabStatus: string) => {
-    if (!user?.fee_status) return false;
-    return user.fee_status.toLowerCase() === tabStatus.toLowerCase();
   };
 
   const renderRequestsTable = (status: string) => {
@@ -257,25 +279,32 @@ const Requests = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">
-        My Fee Receipt Status
-      </h1>
-      {user?.fee_status ? (
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">
+          My Fee Receipt Status
+        </h1>
+        <AcademicYearPicker />
+      </div>
+      {feeStatus === "not_uploaded" ? (
+        <div className="text-center text-gray-500">
+          No fee receipt uploaded for {academicYear} yet.
+        </div>
+      ) : (
         <>
           {renderFeeStatusCard()}
-          {(user.fee_status === "rejected" || user.fee_status === "on_hold") &&
-            user.rejection_comment && (
+          {(feeStatus === "rejected" || feeStatus === "on_hold") &&
+            feeReceipt?.review_notes && (
               <Card className="bg-red-50 border-red-200">
                 <CardContent className="py-4">
                   <div className="font-semibold text-red-700 mb-1">
-                    {user.fee_status === "rejected"
+                    {feeStatus === "rejected"
                       ? "Reason for Rejection"
                       : "Reason for On Hold"}
                   </div>
                   <div className="text-red-800 whitespace-pre-line">
-                    {user.rejection_comment}
+                    {feeReceipt.review_notes}
                   </div>
-                  {user.fee_status === "rejected" && (
+                  {feeStatus === "rejected" && (
                     <div className="mt-4 text-red-900 font-medium">
                       Please upload the correct fee receipt to resolve this
                       issue.
@@ -285,10 +314,6 @@ const Requests = () => {
               </Card>
             )}
         </>
-      ) : (
-        <div className="text-center text-gray-500">
-          No fee receipt status available.
-        </div>
       )}
     </div>
   );

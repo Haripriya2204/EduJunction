@@ -25,8 +25,12 @@ import {
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { supabase } from "../../lib/supabase";
+import { useAcademicYear } from "../../contexts/AcademicYearContext";
+import AcademicYearPicker from "../../components/dashboard/AcademicYearPicker";
+import { getSemesterForRoll } from "../../lib/academicYear";
 
 const FeeSlip = () => {
+  const { academicYear } = useAcademicYear();
   const [feeStatus, setFeeStatus] = useState<string>("not_uploaded");
   const [approvedSemester, setApprovedSemester] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,8 +39,15 @@ const FeeSlip = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentUser = authService.getCurrentUser();
+  // Expected semester for the selected academic year, derived from the roll
+  // number (e.g. 23R2… → 7 for 2026-27). Null when it can't be parsed, in
+  // which case the student picks the semester manually.
+  const expectedSemester = getSemesterForRoll(
+    currentUser?.roll_no,
+    academicYear
+  );
   const [semester, setSemester] = useState<string>(
-    currentUser?.semester || "1"
+    expectedSemester ? String(expectedSemester) : currentUser?.semester || "1"
   );
   const [paymentMode, setPaymentMode] = useState<string>("");
   const [transactionNumber, setTransactionNumber] = useState<string>("");
@@ -52,7 +63,9 @@ const FeeSlip = () => {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const { status } = await studentService.getFeeReceiptStatus();
+        const { status } = await studentService.getFeeReceiptStatus(
+          academicYear
+        );
         setFeeStatus(status);
         setApprovedSemester(null);
         setPaymentMode("");
@@ -67,7 +80,14 @@ const FeeSlip = () => {
     };
 
     fetchStatus();
-  }, [currentUser?.id]);
+  }, [currentUser?.id, academicYear]);
+
+  // Keep the semester aligned with the selected academic year.
+  useEffect(() => {
+    if (expectedSemester) {
+      setSemester(String(expectedSemester));
+    }
+  }, [expectedSemester]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -207,7 +227,8 @@ const FeeSlip = () => {
         semester,
         paymentMode,
         transactionNumber,
-        bankName
+        bankName,
+        academicYear
       );
 
       setFeeStatus("pending");
@@ -258,9 +279,10 @@ const FeeSlip = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">
-        Fee Slip Management
-      </h1>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Fee Slip Management</h1>
+        <AcademicYearPicker />
+      </div>
 
       <Card>
         <CardHeader>
@@ -377,9 +399,10 @@ const FeeSlip = () => {
                   Select Semester
                 </h3>
                 <select
-                  className="w-full border rounded-md p-2"
+                  className="w-full border rounded-md p-2 disabled:bg-gray-100 disabled:text-gray-600"
                   value={semester}
                   onChange={(e) => setSemester(e.target.value)}
+                  disabled={!!expectedSemester}
                 >
                   {[...Array(8)].map((_, i) => (
                     <option key={i + 1} value={String(i + 1)}>{`Semester ${
@@ -387,6 +410,11 @@ const FeeSlip = () => {
                     }`}</option>
                   ))}
                 </select>
+                {expectedSemester && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Auto-selected for academic year {academicYear}.
+                  </p>
+                )}
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">

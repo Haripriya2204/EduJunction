@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { authService } from "../../services/api";
+import { AcademicYearProvider } from "../../contexts/AcademicYearContext";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "../../components/ui/sheet";
 import {
@@ -271,7 +272,9 @@ const DashboardLayout = () => {
       {/* Main Content */}
       <main className="flex-1 overflow-auto p-4 md:p-6 pt-6 w-full">
         <div className="max-w-6xl mx-auto">
-          <Outlet />
+          <AcademicYearProvider>
+            <Outlet />
+          </AcademicYearProvider>
         </div>
       </main>
 

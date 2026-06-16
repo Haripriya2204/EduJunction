@@ -50,7 +50,9 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 // import { selectElective, saveElectives } from '../../api'; // Temporarily comment out elective related imports
-import { supabase } from "../../lib/supabase";
+import { useAcademicYear } from "../../contexts/AcademicYearContext";
+import AcademicYearPicker from "../../components/dashboard/AcademicYearPicker";
+import { getSemesterForRoll } from "../../lib/academicYear";
 
 // Helper to get auth headers (still needed for some API calls, though studentService handles most)
 const getAuthHeaders = () => {
@@ -108,6 +110,7 @@ const Courses = () => {
   >({});
   const [electivesFinalized, setElectivesFinalized] = useState(false);
   const user = studentService.getCurrentUser();
+  const { academicYear } = useAcademicYear();
   const [error, setError] = useState<string | null>(null);
   const [isFetchingElectives, setIsFetchingElectives] = useState(false);
   const [isSelectingElective, setIsSelectingElective] = useState(false);
@@ -118,53 +121,36 @@ const Courses = () => {
     group: string;
   } | null>(null);
 
-  // Add this useEffect to fetch approved semester and set it
+  // Fetch the fee status for the selected academic year and derive which
+  // semester's courses to show. fee_receipts is the per-year source of truth:
+  // use the receipt's semester when present, otherwise fall back to the
+  // expected semester derived from the roll number.
   useEffect(() => {
-    const fetchApprovedSemester = async () => {
+    const loadFeeAndSemester = async () => {
+      if (!user?.id) return;
       try {
-        const { data, error } = await supabase
-          .from("users")
-          .select("approved_semester")
-          .eq("id", user?.id)
-          .single();
-
-        if (error) {
-          console.error("Error fetching approved semester:", error);
-          return;
-        }
-
-        if (data?.approved_semester) {
-          const formattedSemester = convertSemesterNumberToFormat(
-            data.approved_semester
-          );
-          setSelectedSemester(formattedSemester);
-        }
-      } catch (error) {
-        console.error("Error in fetchApprovedSemester:", error);
-      }
-    };
-
-    if (user?.id) {
-      fetchApprovedSemester();
-    }
-  }, [user?.id]);
-
-  // Fetch courses on component mount or refresh
-  useEffect(() => {
-    fetchCourses();
-  }, [refreshKey]);
-
-  useEffect(() => {
-    const checkFeeStatus = async () => {
-      try {
-        const { status } = await studentService.getFeeReceiptStatus();
+        const { status, receipt } = await studentService.getFeeReceiptStatus(
+          academicYear
+        );
         setFeeStatus(status);
+
+        const semNum =
+          receipt?.semester ||
+          (() => {
+            const expected = getSemesterForRoll(
+              (user as { roll_no?: string }).roll_no,
+              academicYear
+            );
+            return expected ? String(expected) : null;
+          })();
+
+        setSelectedSemester(semNum ? convertSemesterNumberToFormat(semNum) : "");
       } catch (error) {
         console.error("Error checking fee status:", error);
       }
     };
-    checkFeeStatus();
-  }, [refreshKey]);
+    loadFeeAndSemester();
+  }, [user?.id, academicYear, refreshKey]);
 
   // Update the fetchCourses function
   const fetchCourses = async () => {
@@ -543,6 +529,7 @@ const Courses = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-800">My Courses</h1>
         <div className="flex flex-wrap items-center gap-2">
+          <AcademicYearPicker />
           <Button
             variant="outline"
             onClick={refreshAllData}

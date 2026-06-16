@@ -62,6 +62,8 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { supabase } from "../../lib/supabase";
+import { useAcademicYear } from "../../contexts/AcademicYearContext";
+import AcademicYearPicker from "../../components/dashboard/AcademicYearPicker";
 
 export interface AdminRequest {
   id: string;
@@ -96,6 +98,7 @@ const ITEMS_PER_PAGE = 50;
 const YEARS = ["I", "II", "III", "IV"];
 
 const StudentRequests = () => {
+  const { academicYear } = useAcademicYear();
   const [activeTab, setActiveTab] = useState("pending");
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [requests, setRequests] = useState<AdminRequest[]>([]);
@@ -178,26 +181,51 @@ const StudentRequests = () => {
 
       if (requestsError) throw requestsError;
 
-      // Transform to AdminRequest format
-      const data = (requestsData as any[]).map((user) => ({
-        id: user.id,
-        type: "feeslip",
-        status: user.fee_status,
-        user: {
-          id: user.id,
-          name: user.name,
-          rollNo: user.roll_no,
-          email: user.email,
-          department: user.department,
-        },
-        semester: user.semester,
-        payment_mode: user.payment_mode,
-        transaction_number: user.transaction_number,
-        bank_name: user.bank_name,
-        receipt_url: user.fee_receipt_url,
-        uploaded_at: user.created_at,
-        reviewed_at: user.updated_at,
-      }));
+      // Fetch this academic year's fee receipts and keep the latest per student.
+      // fee_receipts is the per-academic-year source of truth; students without
+      // a receipt for the year surface as "not uploaded".
+      const { data: receiptsData, error: receiptsError } = await supabase
+        .from("fee_receipts")
+        .select(
+          "id, user_id, semester, payment_mode, transaction_number, bank_name, file_url, status, review_notes, uploaded_at, reviewed_at"
+        )
+        .eq("academic_year", academicYear)
+        .order("uploaded_at", { ascending: false });
+
+      if (receiptsError) throw receiptsError;
+
+      const latestReceiptByUser = new Map<string, any>();
+      for (const r of (receiptsData as any[]) || []) {
+        if (!latestReceiptByUser.has(r.user_id)) {
+          latestReceiptByUser.set(r.user_id, r);
+        }
+      }
+
+      // Transform to AdminRequest format, merging the per-year receipt. The
+      // request id is the receipt id (so approval updates the right row); falls
+      // back to the user id for students with no receipt this year.
+      const data = (requestsData as any[]).map((user) => {
+        const receipt = latestReceiptByUser.get(user.id);
+        return {
+          id: receipt?.id || user.id,
+          type: "feeslip",
+          status: receipt?.status || "not_uploaded",
+          user: {
+            id: user.id,
+            name: user.name,
+            rollNo: user.roll_no,
+            email: user.email,
+            department: user.department,
+          },
+          semester: receipt?.semester || user.semester,
+          payment_mode: receipt?.payment_mode,
+          transaction_number: receipt?.transaction_number,
+          bank_name: receipt?.bank_name,
+          receipt_url: receipt?.file_url,
+          uploaded_at: receipt?.uploaded_at,
+          reviewed_at: receipt?.reviewed_at,
+        };
+      });
 
       // Fetch unregistered students with same logic as FeeReportsSection
       let unregisteredQuery = supabase
@@ -279,7 +307,7 @@ const StudentRequests = () => {
     fetchRequests();
     setCurrentPage(1); // Reset to first page when tab changes
     setUnregisteredPage(1); // Reset unregistered students page
-  }, [activeTab, selectedYear]);
+  }, [activeTab, selectedYear, academicYear]);
 
   const sendEmailNotification = async (
     request: AdminRequest,
@@ -342,10 +370,15 @@ Edmit Team
     if (!selectedRequestForRejection || !rejectionAction) return;
     setProcessing(selectedRequestForRejection.id);
     try {
-      await adminSupabaseService.updateRequestStatus(
+      await adminSupabaseService.updateFeeReceiptStatus(
         selectedRequestForRejection.id,
         rejectionAction,
-        rejectionComment
+        academicYear,
+        {
+          comment: rejectionComment,
+          userId: selectedRequestForRejection.user?.id,
+          reviewedBy: currentUser?.id,
+        }
       );
       await sendEmailNotification(
         selectedRequestForRejection,
@@ -392,8 +425,13 @@ Edmit Team
     }
     setProcessing(requestId);
     try {
-      await adminSupabaseService.updateRequestStatus(requestId, status);
       const request = requests.find((r) => r.id === requestId);
+      await adminSupabaseService.updateFeeReceiptStatus(
+        requestId,
+        status,
+        academicYear,
+        { userId: request?.user?.id, reviewedBy: currentUser?.id }
+      );
       if (request) {
         await sendEmailNotification(request, status);
       }
@@ -604,6 +642,7 @@ Edmit Team
         </div>
 
         <div className="flex items-center gap-4">
+          <AcademicYearPicker />
           <Select
             value={selectedYear}
             onValueChange={(value) => {

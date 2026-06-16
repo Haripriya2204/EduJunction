@@ -29,6 +29,8 @@ import {
   Legend,
 } from "recharts";
 import { FileText, Check, X, Clock, BarChart2, RefreshCw } from "lucide-react";
+import { useAcademicYear } from "../../contexts/AcademicYearContext";
+import AcademicYearPicker from "../dashboard/AcademicYearPicker";
 
 interface FeeStatusReport {
   year: string;
@@ -79,6 +81,7 @@ const FeeReportsSection = ({
   isSuperAdmin,
   onDepartmentChange,
 }: FeeReportsSectionProps) => {
+  const { academicYear } = useAcademicYear();
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [reportData, setReportData] = useState<FeeStatusReport | null>(null);
   const [detailedData, setDetailedData] = useState<DetailedFeeData[]>([]);
@@ -109,98 +112,92 @@ const FeeReportsSection = ({
 
         const yearFilters = getYearFilters(selectedYear);
 
-        // Get total count of registered students
-        let totalQuery = supabase
+        // Fetch the filtered set of registered students.
+        let studentsQuery = supabase
           .from("users")
-          .select("id", { count: "exact" })
+          .select(
+            "id, name, roll_no, email, department, year, semester, created_at"
+          )
           .eq("role", "student");
 
         // Filter by department if department admin, or by selectedDepartment if super admin
         if (isDeptAdmin && adminDepartment) {
-          totalQuery = totalQuery.eq("department", adminDepartment);
+          studentsQuery = studentsQuery.eq("department", adminDepartment);
         } else if (isSuperAdmin && selectedDepartment !== "all") {
-          totalQuery = totalQuery.eq("department", selectedDepartment);
+          studentsQuery = studentsQuery.eq("department", selectedDepartment);
         }
 
         // Add year filter if specified
         if (yearFilters) {
           if (yearFilters.length === 2) {
-            // Filter by both Roman numeral and number formats
-            totalQuery = totalQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
+            studentsQuery = studentsQuery.or(
+              `year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`
+            );
           } else {
-            totalQuery = totalQuery.eq("year", yearFilters[0]);
+            studentsQuery = studentsQuery.eq("year", yearFilters[0]);
           }
         }
 
-        const { count: registeredCount, error: totalError } = await totalQuery;
+        const { data: studentsRaw, error: studentsError } = await studentsQuery;
+        if (studentsError) throw studentsError;
+        const students = (studentsRaw as any[]) || [];
+        const registeredCount = students.length;
 
-        if (totalError) throw totalError;
-
-        // Get count by fee status
-        const statuses = ["approved", "pending", "rejected", "on_hold"];
-        const statusCounts: Record<string, number> = {};
-
-        for (const status of statuses) {
-          let statusQuery = supabase
-            .from("users")
-            .select("id", { count: "exact" })
-            .eq("role", "student")
-            .eq("fee_status", status);
-
-          // Filter by department if department admin, or by selectedDepartment if super admin
-          if (isDeptAdmin && adminDepartment) {
-            statusQuery = statusQuery.eq("department", adminDepartment);
-          } else if (isSuperAdmin && selectedDepartment !== "all") {
-            statusQuery = statusQuery.eq("department", selectedDepartment);
-          }
-
-          // Add year filter if specified
-          if (yearFilters) {
-            if (yearFilters.length === 2) {
-              // Filter by both Roman numeral and number formats
-              statusQuery = statusQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
-            } else {
-              statusQuery = statusQuery.eq("year", yearFilters[0]);
+        // Fetch this academic year's receipts for these students (chunked to
+        // avoid oversized URLs) and keep the latest per student. fee_receipts
+        // is the per-academic-year source of truth.
+        const studentIds = students.map((s) => s.id);
+        const latestReceiptByUser = new Map<string, any>();
+        const CHUNK = 150;
+        for (let i = 0; i < studentIds.length; i += CHUNK) {
+          const ids = studentIds.slice(i, i + CHUNK);
+          const { data: receipts, error: receiptsError } = await supabase
+            .from("fee_receipts")
+            .select(
+              "id, user_id, semester, payment_mode, transaction_number, bank_name, file_url, status, uploaded_at, reviewed_at"
+            )
+            .eq("academic_year", academicYear)
+            .in("user_id", ids)
+            .order("uploaded_at", { ascending: false });
+          if (receiptsError) throw receiptsError;
+          for (const r of (receipts as any[]) || []) {
+            if (!latestReceiptByUser.has(r.user_id)) {
+              latestReceiptByUser.set(r.user_id, r);
             }
           }
-
-          const { count, error } = await statusQuery;
-
-          if (error) throw error;
-          statusCounts[status] = count || 0;
         }
 
-        // Count students who haven't uploaded (null or empty fee_status)
-        let notUploadedQuery = supabase
-          .from("users")
-          .select("id", { count: "exact" })
-          .eq("role", "student")
-          .or("fee_status.is.null,fee_status.eq.");
-
-        // Filter by department if department admin, or by selectedDepartment if super admin
-        if (isDeptAdmin && adminDepartment) {
-          notUploadedQuery = notUploadedQuery.eq("department", adminDepartment);
-        } else if (isSuperAdmin && selectedDepartment !== "all") {
-          notUploadedQuery = notUploadedQuery.eq(
-            "department",
-            selectedDepartment
-          );
-        }
-
-        // Add year filter if specified
-        if (yearFilters) {
-          if (yearFilters.length === 2) {
-            // Filter by both Roman numeral and number formats
-            notUploadedQuery = notUploadedQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
+        // Tally statuses for the selected academic year and build the detailed rows.
+        const statusCounts: Record<string, number> = {
+          approved: 0,
+          pending: 0,
+          rejected: 0,
+          on_hold: 0,
+        };
+        let notUploadedCount = 0;
+        const detailed: DetailedFeeData[] = students.map((s) => {
+          const rc = latestReceiptByUser.get(s.id);
+          const status = rc?.status || "not_uploaded";
+          if (status in statusCounts) {
+            statusCounts[status] += 1;
           } else {
-            notUploadedQuery = notUploadedQuery.eq("year", yearFilters[0]);
+            notUploadedCount += 1;
           }
-        }
-
-        const { count: notUploadedCount, error: notUploadedError } =
-          await notUploadedQuery;
-
-        if (notUploadedError) throw notUploadedError;
+          return {
+            id: s.id,
+            name: s.name,
+            roll_no: s.roll_no,
+            email: s.email,
+            department: s.department,
+            fee_status: status === "not_uploaded" ? "" : status,
+            payment_mode: rc?.payment_mode,
+            transaction_number: rc?.transaction_number,
+            bank_name: rc?.bank_name,
+            fee_receipt_url: rc?.file_url,
+            created_at: rc?.uploaded_at || s.created_at,
+            updated_at: rc?.reviewed_at,
+          };
+        });
 
         // Get count of unregistered students (in students25 but not in users)
         let unregisteredQuery = supabase
@@ -252,37 +249,7 @@ const FeeReportsSection = ({
         };
 
         setReportData(report);
-
-        // Also fetch detailed data for the table view
-        let detailedQuery = supabase
-          .from("users")
-          .select(
-            "id, name, roll_no, email, department, fee_status, payment_mode, transaction_number, bank_name, fee_receipt_url, created_at, updated_at, year"
-          )
-          .eq("role", "student");
-
-        // Filter by department if department admin, or by selectedDepartment if super admin
-        if (isDeptAdmin && adminDepartment) {
-          detailedQuery = detailedQuery.eq("department", adminDepartment);
-        } else if (isSuperAdmin && selectedDepartment !== "all") {
-          detailedQuery = detailedQuery.eq("department", selectedDepartment);
-        }
-
-        // Add year filter if specified
-        if (yearFilters) {
-          if (yearFilters.length === 2) {
-            // Filter by both Roman numeral and number formats
-            detailedQuery = detailedQuery.or(`year.eq.${yearFilters[0]},year.eq.${yearFilters[1]}`);
-          } else {
-            detailedQuery = detailedQuery.eq("year", yearFilters[0]);
-          }
-        }
-
-        const { data: detailed, error: detailedError } =
-          await detailedQuery.order("fee_status", { ascending: false });
-
-        if (detailedError) throw detailedError;
-        setDetailedData(detailed as DetailedFeeData[]);
+        setDetailedData(detailed);
       } catch (error) {
         console.error("Error fetching report data:", error);
         toast({
@@ -299,6 +266,7 @@ const FeeReportsSection = ({
   }, [
     selectedYear,
     selectedDepartment,
+    academicYear,
     toast,
     adminDepartment,
     isDeptAdmin,
@@ -369,6 +337,7 @@ const FeeReportsSection = ({
         </div>
 
         <div className="flex items-center gap-4">
+          <AcademicYearPicker />
           {isSuperAdmin && (
             <Select
               value={selectedDepartment}

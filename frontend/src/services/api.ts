@@ -10,6 +10,22 @@ import { db, connectToDatabase } from "../db/database";
 import { User, Course, Request, FeeReceipt, Notification } from "../db/models";
 import axios from "axios";
 import { supabase } from "../lib/supabase";
+import { CURRENT_ACADEMIC_YEAR } from "../lib/academicYear";
+
+// Shape of a fee receipt as surfaced to the student-facing UI.
+export interface FeeReceiptRecord {
+  id: string;
+  semester?: string;
+  file_url?: string;
+  payment_mode?: string;
+  transaction_number?: string;
+  bank_name?: string;
+  status: string;
+  academic_year?: string;
+  review_notes?: string | null;
+  uploaded_at?: string;
+  reviewed_at?: string | null;
+}
 
 // Connect to the database
 connectToDatabase();
@@ -421,24 +437,38 @@ export const studentService = {
     }
   },
 
-  getFeeReceiptStatus: async (): Promise<{ status: string }> => {
+  // Fetch the latest fee receipt (and its status) for the given academic year.
+  // The fee_receipts table is the per-academic-year source of truth: no row
+  // for the year means the student hasn't uploaded yet.
+  getFeeReceiptStatus: async (
+    academicYear: string = CURRENT_ACADEMIC_YEAR
+  ): Promise<{ status: string; receipt: FeeReceiptRecord | null }> => {
     const user = authService.getCurrentUser();
     if (!user) {
       throw new Error("User not authenticated");
     }
-    // Assuming fee_status is available directly on the user object
+
     const { data, error } = await supabase
-      .from("users")
-      .select("fee_status")
-      .eq("id", user.id)
-      .single();
+      .from("fee_receipts")
+      .select(
+        "id, semester, file_url, payment_mode, transaction_number, bank_name, status, academic_year, review_notes, uploaded_at, reviewed_at"
+      )
+      .eq("user_id", user.id)
+      .eq("academic_year", academicYear)
+      .order("uploaded_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (error) {
       console.error("Error fetching fee status:", error);
       throw error;
     }
 
-    return { status: data?.fee_status || "unknown" };
+    if (!data) {
+      return { status: "not_uploaded", receipt: null };
+    }
+
+    return { status: data.status || "not_uploaded", receipt: data };
   },
 
   uploadFeeReceipt: async (
@@ -446,7 +476,8 @@ export const studentService = {
     semester: string,
     paymentMode: string,
     transactionNumber?: string,
-    bankName?: string
+    bankName?: string,
+    academicYear: string = CURRENT_ACADEMIC_YEAR
   ): Promise<void> => {
     const user = authService.getCurrentUser();
     if (!user) {
@@ -489,7 +520,7 @@ export const studentService = {
       const fileExt = file.name.split(".").pop();
       const fileName = `${
         session.user.id
-      }/${semester}_${Date.now()}.${fileExt}`;
+      }/${academicYear}_${semester}_${Date.now()}.${fileExt}`;
 
       console.log("Attempting to upload file:", {
         fileName,
@@ -519,7 +550,7 @@ export const studentService = {
 
       console.log("Generated public URL:", publicUrl);
 
-      // Create fee receipt record in the database
+      // Create fee receipt record in the database (per-academic-year ledger)
       const { error: dbError } = await supabase.from("fee_receipts").insert({
         user_id: session.user.id,
         semester: semester,
@@ -529,6 +560,7 @@ export const studentService = {
         transaction_number: transactionNumber,
         bank_name: bankName,
         status: "pending",
+        academic_year: academicYear,
         uploaded_at: new Date().toISOString(),
       });
 
@@ -539,28 +571,31 @@ export const studentService = {
         throw new Error("Failed to save fee receipt information");
       }
 
-      // Update user's fee-related fields in the users table
-      const { error: userUpdateError } = await supabase
-        .from("users")
-        .update({
-          approved_semester: semester,
-          payment_mode: paymentMode,
-          transaction_number: transactionNumber,
-          bank_name: bankName,
-          fee_receipt_url: publicUrl,
-          fee_status: "pending", // Set status to pending upon upload
-        })
-        .eq("id", session.user.id); // Assuming 'id' is the primary key in users table
+      // Mirror onto the users table only for the current academic year, to keep
+      // legacy reads working. Older years stay frozen so previous-year state is
+      // never overwritten.
+      if (academicYear === CURRENT_ACADEMIC_YEAR) {
+        const { error: userUpdateError } = await supabase
+          .from("users")
+          .update({
+            approved_semester: semester,
+            payment_mode: paymentMode,
+            transaction_number: transactionNumber,
+            bank_name: bankName,
+            fee_receipt_url: publicUrl,
+            fee_status: "pending", // Set status to pending upon upload
+          })
+          .eq("id", session.user.id);
 
-      if (userUpdateError) {
-        console.error("User update error:", userUpdateError);
-        // Consider rolling back the fee_receipts insert or handling this error appropriately
-        throw new Error("Failed to update user profile with fee receipt info");
+        if (userUpdateError) {
+          console.error("User update error:", userUpdateError);
+          throw new Error(
+            "Failed to update user profile with fee receipt info"
+          );
+        }
       }
 
-      console.log(
-        "Fee receipt record created and user profile updated successfully"
-      );
+      console.log("Fee receipt record created successfully");
     } catch (error) {
       console.error("Error uploading fee receipt:", error);
       throw error;

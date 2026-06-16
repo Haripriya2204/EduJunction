@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { CURRENT_ACADEMIC_YEAR } from "../lib/academicYear";
 
 interface User {
   id: string;
@@ -215,6 +216,51 @@ export const adminSupabaseService = {
     if (error) {
       console.error("Error updating request status:", error);
       throw error;
+    }
+  },
+
+  // Year-aware approval: update the fee_receipts row (the per-academic-year
+  // source of truth). For the current academic year we also mirror onto the
+  // users table so legacy reads stay in sync; older years are left frozen.
+  async updateFeeReceiptStatus(
+    receiptId: string,
+    status: string,
+    academicYear: string,
+    options?: { comment?: string; userId?: string; reviewedBy?: string }
+  ): Promise<void> {
+    const reviewedAt = new Date().toISOString();
+    const receiptUpdate: any = {
+      status,
+      reviewed_at: reviewedAt,
+    };
+    if (options?.reviewedBy) receiptUpdate.reviewed_by = options.reviewedBy;
+    if ((status === "rejected" || status === "on_hold") && options?.comment) {
+      receiptUpdate.review_notes = options.comment;
+    }
+
+    const { error } = await supabase
+      .from("fee_receipts")
+      .update(receiptUpdate)
+      .eq("id", receiptId);
+
+    if (error) {
+      console.error("Error updating fee receipt status:", error);
+      throw error;
+    }
+
+    if (academicYear === CURRENT_ACADEMIC_YEAR && options?.userId) {
+      const userUpdate: any = { fee_status: status, reviewed_at: reviewedAt };
+      if ((status === "rejected" || status === "on_hold") && options?.comment) {
+        userUpdate.rejection_comment = options.comment;
+      }
+      const { error: userError } = await supabase
+        .from("users")
+        .update(userUpdate)
+        .eq("id", options.userId);
+      if (userError) {
+        console.error("Error mirroring fee status to user:", userError);
+        throw userError;
+      }
     }
   },
 
