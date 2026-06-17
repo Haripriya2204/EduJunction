@@ -12,6 +12,19 @@ export const CURRENT_ACADEMIC_YEAR = "2026-27";
 // Newest first; drives the picker order.
 export const SELECTABLE_ACADEMIC_YEARS = ["2026-27", "2025-26"];
 
+// The administrative office fee was introduced from this academic year. Earlier
+// years (e.g. 2025-26) never required it, so course access for those years must
+// not be gated on an admin fee receipt that can't exist.
+export const ADMIN_FEE_INTRODUCED_ACADEMIC_YEAR = "2026-27";
+
+/** Whether the administrative office fee is required for the given academic year. */
+export function requiresAdminFee(academicYear: string): boolean {
+  return (
+    academicStartYear(academicYear) >=
+    academicStartYear(ADMIN_FEE_INTRODUCED_ACADEMIC_YEAR)
+  );
+}
+
 /** "2026-27" -> 2026 */
 export function academicStartYear(academicYear: string): number {
   return parseInt(academicYear.slice(0, 4), 10);

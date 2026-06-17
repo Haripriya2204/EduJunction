@@ -226,8 +226,14 @@ export const adminSupabaseService = {
     receiptId: string,
     status: string,
     academicYear: string,
-    options?: { comment?: string; userId?: string; reviewedBy?: string }
+    options?: {
+      comment?: string;
+      userId?: string;
+      reviewedBy?: string;
+      table?: "fee_receipts" | "admin_fee_receipts";
+    }
   ): Promise<void> {
+    const table = options?.table || "fee_receipts";
     const reviewedAt = new Date().toISOString();
     const receiptUpdate: any = {
       status,
@@ -239,7 +245,7 @@ export const adminSupabaseService = {
     }
 
     const { error } = await supabase
-      .from("fee_receipts")
+      .from(table)
       .update(receiptUpdate)
       .eq("id", receiptId);
 
@@ -248,7 +254,12 @@ export const adminSupabaseService = {
       throw error;
     }
 
-    if (academicYear === CURRENT_ACADEMIC_YEAR && options?.userId) {
+    // Only the main fee mirrors to the users table.
+    if (
+      table === "fee_receipts" &&
+      academicYear === CURRENT_ACADEMIC_YEAR &&
+      options?.userId
+    ) {
       const userUpdate: any = { fee_status: status, reviewed_at: reviewedAt };
       if ((status === "rejected" || status === "on_hold") && options?.comment) {
         userUpdate.rejection_comment = options.comment;

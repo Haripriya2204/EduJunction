@@ -27,6 +27,7 @@ import { cn } from "../../lib/utils";
 import { supabase } from "../../lib/supabase";
 import { useAcademicYear } from "../../contexts/AcademicYearContext";
 import AcademicYearPicker from "../../components/dashboard/AcademicYearPicker";
+import AdminFeeSlipCard from "../../components/dashboard/AdminFeeSlipCard";
 import { getSemesterForRoll } from "../../lib/academicYear";
 
 const FeeSlip = () => {
@@ -585,6 +586,8 @@ const FeeSlip = () => {
           </div>
         </CardContent>
       </Card>
+
+      <AdminFeeSlipCard />
     </div>
   );
 };

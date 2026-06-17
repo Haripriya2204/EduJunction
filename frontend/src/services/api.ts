@@ -602,6 +602,124 @@ export const studentService = {
     }
   },
 
+  // Administrative office fee — a separate receipt the student must also upload
+  // and have approved. Stored in its own table/bucket; never mirrored to users.
+  getAdminFeeReceiptStatus: async (
+    academicYear: string = CURRENT_ACADEMIC_YEAR
+  ): Promise<{ status: string; receipt: FeeReceiptRecord | null }> => {
+    const user = authService.getCurrentUser();
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    const { data, error } = await supabase
+      .from("admin_fee_receipts")
+      .select(
+        "id, semester, file_url, payment_mode, transaction_number, bank_name, status, academic_year, review_notes, uploaded_at, reviewed_at"
+      )
+      .eq("user_id", user.id)
+      .eq("academic_year", academicYear)
+      .order("uploaded_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching admin fee status:", error);
+      throw error;
+    }
+
+    if (!data) {
+      return { status: "not_uploaded", receipt: null };
+    }
+
+    return { status: data.status || "not_uploaded", receipt: data };
+  },
+
+  uploadAdminFeeReceipt: async (
+    file: File,
+    semester: string,
+    paymentMode: string,
+    transactionNumber?: string,
+    bankName?: string,
+    academicYear: string = CURRENT_ACADEMIC_YEAR
+  ): Promise<void> => {
+    const user = authService.getCurrentUser();
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    const {
+      data: { session },
+      error: authError,
+    } = await supabase.auth.getSession();
+
+    if (authError) {
+      console.error("Auth error:", authError);
+      throw new Error("Authentication failed");
+    }
+    if (!session) {
+      throw new Error("No active session found");
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("File size should be less than 5MB");
+    }
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error("Only PDF, JPEG, and PNG files are allowed");
+    }
+
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${
+        session.user.id
+      }/${academicYear}_${semester}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("admin-fee-receipt-files")
+        .upload(fileName, file, { cacheControl: "3600", upsert: false });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        throw new Error("Failed to upload admin fee receipt");
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage
+        .from("admin-fee-receipt-files")
+        .getPublicUrl(fileName);
+
+      const { error: dbError } = await supabase
+        .from("admin_fee_receipts")
+        .insert({
+          user_id: session.user.id,
+          semester: semester,
+          file_path: fileName,
+          file_url: publicUrl,
+          payment_mode: paymentMode,
+          transaction_number: transactionNumber,
+          bank_name: bankName,
+          status: "pending",
+          academic_year: academicYear,
+          uploaded_at: new Date().toISOString(),
+        });
+
+      if (dbError) {
+        console.error("Database error:", dbError);
+        await supabase.storage
+          .from("admin-fee-receipt-files")
+          .remove([fileName]);
+        throw new Error("Failed to save admin fee receipt information");
+      }
+
+      console.log("Admin fee receipt record created successfully");
+    } catch (error) {
+      console.error("Error uploading admin fee receipt:", error);
+      throw error;
+    }
+  },
+
   submitFeeSlipRequest: async (): Promise<void> => {
     const user = authService.getCurrentUser();
     if (!user) {

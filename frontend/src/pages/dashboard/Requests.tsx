@@ -16,6 +16,7 @@ import {
 } from "../../services/api";
 import { useAcademicYear } from "../../contexts/AcademicYearContext";
 import AcademicYearPicker from "../../components/dashboard/AcademicYearPicker";
+import { requiresAdminFee } from "../../lib/academicYear";
 import {
   Table,
   TableBody,
@@ -35,6 +36,9 @@ const Requests = () => {
   const { academicYear } = useAcademicYear();
   const [feeReceipt, setFeeReceipt] = useState<FeeReceiptRecord | null>(null);
   const [feeStatus, setFeeStatus] = useState<string>("not_uploaded");
+  const [adminFeeReceipt, setAdminFeeReceipt] =
+    useState<FeeReceiptRecord | null>(null);
+  const [adminFeeStatus, setAdminFeeStatus] = useState<string>("not_uploaded");
 
   useEffect(() => {
     const loadRequests = async () => {
@@ -62,6 +66,11 @@ const Requests = () => {
         );
         setFeeStatus(status);
         setFeeReceipt(receipt);
+        const admin = await studentService.getAdminFeeReceiptStatus(
+          academicYear
+        );
+        setAdminFeeStatus(admin.status);
+        setAdminFeeReceipt(admin.receipt);
       } catch (error) {
         console.error("Error fetching fee receipt:", error);
       }
@@ -79,16 +88,20 @@ const Requests = () => {
     );
   }, []);
 
-  // Get counts for each status, including fee status
+  // Get counts for each status, including both fee receipts
+  const adminCounts = requiresAdminFee(academicYear);
   const pendingCount =
     requests.filter((req) => req.status.toLowerCase() === "pending").length +
-    (feeStatus.toLowerCase() === "pending" ? 1 : 0);
+    (feeStatus.toLowerCase() === "pending" ? 1 : 0) +
+    (adminCounts && adminFeeStatus.toLowerCase() === "pending" ? 1 : 0);
   const approvedCount =
     requests.filter((req) => req.status.toLowerCase() === "approved").length +
-    (feeStatus.toLowerCase() === "approved" ? 1 : 0);
+    (feeStatus.toLowerCase() === "approved" ? 1 : 0) +
+    (adminCounts && adminFeeStatus.toLowerCase() === "approved" ? 1 : 0);
   const rejectedCount =
     requests.filter((req) => req.status.toLowerCase() === "rejected").length +
-    (feeStatus.toLowerCase() === "rejected" ? 1 : 0);
+    (feeStatus.toLowerCase() === "rejected" ? 1 : 0) +
+    (adminCounts && adminFeeStatus.toLowerCase() === "rejected" ? 1 : 0);
 
   // Get requests filtered by status
   const getFilteredRequests = (status: string) => {
@@ -168,7 +181,11 @@ const Requests = () => {
     }
   };
 
-  const renderFeeStatusCard = () => {
+  const renderFeeStatusCard = (
+    label: string,
+    cardStatus: string,
+    receipt: FeeReceiptRecord | null
+  ) => {
     return (
       <Card className="mb-6">
         <CardContent className="pt-6">
@@ -176,10 +193,10 @@ const Requests = () => {
             <div className="flex items-center gap-2">
               <Receipt className="h-5 w-5 text-gray-500" />
               <span className="font-medium">
-                Fee Receipt Status ({academicYear})
+                {label} ({academicYear})
               </span>
             </div>
-            {getFeeStatusBadge(feeStatus)}
+            {getFeeStatusBadge(cardStatus)}
           </div>
 
           <div className="space-y-2 text-sm text-gray-600">
@@ -187,41 +204,41 @@ const Requests = () => {
               <span className="font-medium">Student Name:</span>
               <span>{user?.name}</span>
             </div>
-            {feeReceipt?.semester && (
+            {receipt?.semester && (
               <div className="flex items-center gap-2">
                 <span className="font-medium">Semester:</span>
-                <span>{feeReceipt.semester}</span>
+                <span>{receipt.semester}</span>
               </div>
             )}
-            {feeReceipt?.payment_mode && (
+            {receipt?.payment_mode && (
               <div className="flex items-center gap-2">
                 <span className="font-medium">Payment Mode:</span>
-                <span className="capitalize">{feeReceipt.payment_mode}</span>
+                <span className="capitalize">{receipt.payment_mode}</span>
               </div>
             )}
-            {feeReceipt?.transaction_number && (
+            {receipt?.transaction_number && (
               <div className="flex items-center gap-2">
                 <span className="font-medium">Transaction Number:</span>
-                <span>{feeReceipt.transaction_number}</span>
+                <span>{receipt.transaction_number}</span>
               </div>
             )}
-            {feeReceipt?.bank_name && (
+            {receipt?.bank_name && (
               <div className="flex items-center gap-2">
                 <span className="font-medium">Bank Name:</span>
-                <span>{feeReceipt.bank_name}</span>
+                <span>{receipt.bank_name}</span>
               </div>
             )}
           </div>
 
-          {feeReceipt?.file_url && (
+          {receipt?.file_url && (
             <div className="mt-4">
               <a
-                href={feeReceipt.file_url}
+                href={receipt.file_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-600 hover:underline"
               >
-                View Fee Receipt
+                View Receipt
               </a>
             </div>
           )}
@@ -285,16 +302,18 @@ const Requests = () => {
         </h1>
         <AcademicYearPicker />
       </div>
-      {feeStatus === "not_uploaded" ? (
+      {feeStatus === "not_uploaded" &&
+      (!requiresAdminFee(academicYear) || adminFeeStatus === "not_uploaded") ? (
         <div className="text-center text-gray-500">
-          No fee receipt uploaded for {academicYear} yet.
+          No fee receipts uploaded for {academicYear} yet.
         </div>
       ) : (
         <>
-          {renderFeeStatusCard()}
+          {feeStatus !== "not_uploaded" &&
+            renderFeeStatusCard("Fee Receipt Status", feeStatus, feeReceipt)}
           {(feeStatus === "rejected" || feeStatus === "on_hold") &&
             feeReceipt?.review_notes && (
-              <Card className="bg-red-50 border-red-200">
+              <Card className="bg-red-50 border-red-200 mb-6">
                 <CardContent className="py-4">
                   <div className="font-semibold text-red-700 mb-1">
                     {feeStatus === "rejected"
@@ -310,6 +329,29 @@ const Requests = () => {
                       issue.
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+          {requiresAdminFee(academicYear) &&
+            adminFeeStatus !== "not_uploaded" &&
+            renderFeeStatusCard(
+              "Administrative Office Fee Status",
+              adminFeeStatus,
+              adminFeeReceipt
+            )}
+          {(adminFeeStatus === "rejected" || adminFeeStatus === "on_hold") &&
+            adminFeeReceipt?.review_notes && (
+              <Card className="bg-red-50 border-red-200">
+                <CardContent className="py-4">
+                  <div className="font-semibold text-red-700 mb-1">
+                    {adminFeeStatus === "rejected"
+                      ? "Administrative Office Fee — Reason for Rejection"
+                      : "Administrative Office Fee — Reason for On Hold"}
+                  </div>
+                  <div className="text-red-800 whitespace-pre-line">
+                    {adminFeeReceipt.review_notes}
+                  </div>
                 </CardContent>
               </Card>
             )}

@@ -52,7 +52,7 @@ import {
 // import { selectElective, saveElectives } from '../../api'; // Temporarily comment out elective related imports
 import { useAcademicYear } from "../../contexts/AcademicYearContext";
 import AcademicYearPicker from "../../components/dashboard/AcademicYearPicker";
-import { getSemesterForRoll } from "../../lib/academicYear";
+import { getSemesterForRoll, requiresAdminFee } from "../../lib/academicYear";
 
 // Helper to get auth headers (still needed for some API calls, though studentService handles most)
 const getAuthHeaders = () => {
@@ -97,6 +97,7 @@ const Courses = () => {
     Record<string, string>
   >({});
   const [feeStatus, setFeeStatus] = useState<string>("");
+  const [adminFeeStatus, setAdminFeeStatus] = useState<string>("not_uploaded");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("mandatory");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -133,6 +134,11 @@ const Courses = () => {
           academicYear
         );
         setFeeStatus(status);
+
+        const admin = await studentService.getAdminFeeReceiptStatus(
+          academicYear
+        );
+        setAdminFeeStatus(admin.status);
 
         const semNum =
           receipt?.semester ||
@@ -502,6 +508,16 @@ const Courses = () => {
     return selectedCourse.course_name;
   };
 
+  // Course access requires the main fee approved AND (when applicable) the
+  // administrative office fee approved.
+  const adminFeeRequired = requiresAdminFee(academicYear);
+  const adminFeeNeedsUpload =
+    adminFeeRequired &&
+    (adminFeeStatus === "not_uploaded" || adminFeeStatus === "rejected");
+  const coursesUnlocked =
+    feeStatus === "approved" &&
+    (!adminFeeRequired || adminFeeStatus === "approved");
+
   if (loading) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -577,6 +593,42 @@ const Courses = () => {
         </Card>
       )}
 
+      {/* Administrative Office Fee Upload Banner */}
+      {adminFeeNeedsUpload && (
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 shadow-lg">
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-1">
+                  <AlertCircle className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-blue-900 mb-1">
+                    {adminFeeStatus === "rejected"
+                      ? "Administrative Office Fee Rejected - Action Required"
+                      : "Upload Administrative Office Fee Receipt"}
+                  </h3>
+                  <p className="text-blue-800">
+                    {adminFeeStatus === "rejected"
+                      ? "Your administrative office fee receipt was rejected. Please upload a valid one to access your courses."
+                      : "You must also upload your administrative office fee receipt. Both fees must be approved to access your courses."}
+                  </p>
+                </div>
+              </div>
+              <Button
+                asChild
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md whitespace-nowrap"
+              >
+                <a href="/dashboard/services/feeslip">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Upload Office Fee Receipt
+                </a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {!selectedSemester ? (
         <Card className="bg-yellow-50 border-yellow-200 mb-6">
           <CardContent className="pt-6">
@@ -589,7 +641,20 @@ const Courses = () => {
             </div>
           </CardContent>
         </Card>
-      ) : feeStatus === "pending" ? (
+      ) : coursesUnlocked ? (
+        <Card className="bg-green-50 border-green-200 mb-6 transition-all duration-300">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <p className="text-green-800 font-medium">
+                Fees verified. You have access to all your courses for Semester{" "}
+                {selectedSemester}.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : feeStatus === "pending" ||
+        (adminFeeRequired && adminFeeStatus === "pending") ? (
         <Card className="bg-yellow-50 border-yellow-200 mb-6 transition-all duration-300">
           <CardContent className="pt-6">
             <div className="flex flex-col gap-2">
@@ -599,18 +664,12 @@ const Courses = () => {
                   Fee payment verification pending
                 </p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : feeStatus === "approved" ? (
-        <Card className="bg-green-50 border-green-200 mb-6 transition-all duration-300">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <p className="text-green-800 font-medium">
-                Fee payment verified. You have access to all your courses for
-                Semester {selectedSemester}.
-              </p>
+              {adminFeeRequired && (
+                <p className="text-yellow-700 ml-7 text-sm">
+                  Main fee: {feeStatus.replace("_", " ")} · Administrative office
+                  fee: {adminFeeStatus.replace("_", " ")}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -641,7 +700,7 @@ const Courses = () => {
               value="mandatory"
               className="transition-opacity duration-300"
             >
-              {feeStatus !== "approved" ? (
+              {!coursesUnlocked ? (
                 <div className="bg-gray-50 rounded-lg p-6 text-center">
                   <Clock className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                   <h3 className="text-lg font-medium text-gray-700 mb-2">
@@ -704,7 +763,7 @@ const Courses = () => {
               value="electives"
               className="transition-opacity duration-300"
             >
-              {feeStatus !== "approved" ? (
+              {!coursesUnlocked ? (
                 <div className="bg-gray-50 rounded-lg p-6 text-center">
                   <Clock className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                   <h3 className="text-lg font-medium text-gray-700 mb-2">

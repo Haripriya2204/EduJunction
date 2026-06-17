@@ -101,6 +101,9 @@ const StudentRequests = () => {
   const { academicYear } = useAcademicYear();
   const [activeTab, setActiveTab] = useState("pending");
   const [selectedYear, setSelectedYear] = useState<string>("all");
+  const [receiptType, setReceiptType] = useState<"main" | "admin">("main");
+  const receiptTable =
+    receiptType === "admin" ? "admin_fee_receipts" : "fee_receipts";
   const [requests, setRequests] = useState<AdminRequest[]>([]);
   const [unregisteredStudents, setUnregisteredStudents] = useState<Student[]>(
     []
@@ -185,7 +188,7 @@ const StudentRequests = () => {
       // fee_receipts is the per-academic-year source of truth; students without
       // a receipt for the year surface as "not uploaded".
       const { data: receiptsData, error: receiptsError } = await supabase
-        .from("fee_receipts")
+        .from(receiptTable)
         .select(
           "id, user_id, semester, payment_mode, transaction_number, bank_name, file_url, status, review_notes, uploaded_at, reviewed_at"
         )
@@ -307,7 +310,7 @@ const StudentRequests = () => {
     fetchRequests();
     setCurrentPage(1); // Reset to first page when tab changes
     setUnregisteredPage(1); // Reset unregistered students page
-  }, [activeTab, selectedYear, academicYear]);
+  }, [activeTab, selectedYear, academicYear, receiptType]);
 
   const sendEmailNotification = async (
     request: AdminRequest,
@@ -378,6 +381,7 @@ Edmit Team
           comment: rejectionComment,
           userId: selectedRequestForRejection.user?.id,
           reviewedBy: currentUser?.id,
+          table: receiptTable,
         }
       );
       await sendEmailNotification(
@@ -430,7 +434,11 @@ Edmit Team
         requestId,
         status,
         academicYear,
-        { userId: request?.user?.id, reviewedBy: currentUser?.id }
+        {
+          userId: request?.user?.id,
+          reviewedBy: currentUser?.id,
+          table: receiptTable,
+        }
       );
       if (request) {
         await sendEmailNotification(request, status);
@@ -643,6 +651,21 @@ Edmit Team
 
         <div className="flex items-center gap-4">
           <AcademicYearPicker />
+          <Select
+            value={receiptType}
+            onValueChange={(value) => {
+              setReceiptType(value as "main" | "admin");
+              setCurrentPage(1);
+            }}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Receipt Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="main">Main Fee Receipt</SelectItem>
+              <SelectItem value="admin">Administrative Office Fee</SelectItem>
+            </SelectContent>
+          </Select>
           <Select
             value={selectedYear}
             onValueChange={(value) => {
