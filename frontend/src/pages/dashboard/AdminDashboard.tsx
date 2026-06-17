@@ -71,6 +71,8 @@ import {
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { supabase } from "../../lib/supabase";
+import { useAcademicYear } from "../../contexts/AcademicYearContext";
+import AcademicYearPicker from "../../components/dashboard/AcademicYearPicker";
 
 interface DepartmentStats {
   department: string;
@@ -155,6 +157,7 @@ const renderPieLabel = ({
 
 const AdminDashboard = () => {
   const currentUser = authService.getCurrentUser();
+  const { academicYear } = useAcademicYear();
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
   const [yearStats, setYearStats] = useState<YearStats[]>([]);
@@ -281,6 +284,50 @@ const AdminDashboard = () => {
           return;
         }
         console.log(`[AdminDashboard] Fetched ${users.length} users`);
+
+        // Make the overview academic-year aware: fee_receipts is the per-year
+        // source of truth, so override each user's fee fields with their latest
+        // receipt for the selected academic year (or "not_uploaded" if none).
+        // Downstream grouping/stats/export all read user.fee_status, so this
+        // single remap keeps everything consistent.
+        const userIds = users.map((u: any) => u.id);
+        const latestReceiptByUser = new Map<string, any>();
+        const RECEIPT_CHUNK = 150;
+        for (let i = 0; i < userIds.length; i += RECEIPT_CHUNK) {
+          const ids = userIds.slice(i, i + RECEIPT_CHUNK);
+          const { data: receipts, error: receiptsError } = await supabase
+            .from("fee_receipts")
+            .select(
+              "id, user_id, semester, payment_mode, transaction_number, bank_name, file_url, status, uploaded_at, reviewed_at"
+            )
+            .eq("academic_year", academicYear)
+            .in("user_id", ids)
+            .order("uploaded_at", { ascending: false });
+          if (receiptsError) {
+            console.error("Error fetching fee receipts:", receiptsError);
+            continue;
+          }
+          for (const r of (receipts as any[]) || []) {
+            if (!latestReceiptByUser.has(r.user_id)) {
+              latestReceiptByUser.set(r.user_id, r);
+            }
+          }
+        }
+
+        users = users.map((u: any) => {
+          const rc = latestReceiptByUser.get(u.id);
+          return {
+            ...u,
+            fee_status: rc?.status || "not_uploaded",
+            semester: rc?.semester ?? u.semester,
+            payment_mode: rc?.payment_mode,
+            transaction_number: rc?.transaction_number,
+            bank_name: rc?.bank_name,
+            fee_receipt_url: rc?.file_url,
+            created_at: rc?.uploaded_at || u.created_at,
+            updated_at: rc?.reviewed_at,
+          };
+        });
 
         // Fetch unregistered students with same logic as FeeReportsSection
         let unregisteredQuery = supabase
@@ -561,6 +608,7 @@ const AdminDashboard = () => {
   }, [
     selectedYear,
     selectedDepartment,
+    academicYear,
     isDeptAdmin,
     adminDepartment,
     isSuperAdmin,
@@ -676,6 +724,7 @@ const AdminDashboard = () => {
           )}
         </div>
         <div className="flex items-center gap-4">
+          <AcademicYearPicker />
           <Select value={selectedYear} onValueChange={setSelectedYear}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select Year" />
