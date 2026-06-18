@@ -605,8 +605,8 @@ const Courses = () => {
                 <div>
                   <h3 className="text-lg font-bold text-blue-900 mb-1">
                     {adminFeeStatus === "rejected"
-                      ? "Administrative Office Fee Rejected - Action Required"
-                      : "Upload Administrative Office Fee Receipt"}
+                      ? "Administrative Office Fee (₹4500) Rejected - Action Required"
+                      : "Upload Administrative Office Fee (₹4500) Receipt"}
                   </h3>
                   <p className="text-blue-800">
                     {adminFeeStatus === "rejected"

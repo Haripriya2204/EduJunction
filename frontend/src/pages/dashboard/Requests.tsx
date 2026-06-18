@@ -336,7 +336,7 @@ const Requests = () => {
           {requiresAdminFee(academicYear) &&
             adminFeeStatus !== "not_uploaded" &&
             renderFeeStatusCard(
-              "Administrative Office Fee Status",
+              "Administrative Office Fee (₹4500) Status",
               adminFeeStatus,
               adminFeeReceipt
             )}
@@ -346,8 +346,8 @@ const Requests = () => {
                 <CardContent className="py-4">
                   <div className="font-semibold text-red-700 mb-1">
                     {adminFeeStatus === "rejected"
-                      ? "Administrative Office Fee — Reason for Rejection"
-                      : "Administrative Office Fee — Reason for On Hold"}
+                      ? "Administrative Office Fee (₹4500) — Reason for Rejection"
+                      : "Administrative Office Fee (₹4500) — Reason for On Hold"}
                   </div>
                   <div className="text-red-800 whitespace-pre-line">
                     {adminFeeReceipt.review_notes}

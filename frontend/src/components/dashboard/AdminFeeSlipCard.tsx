@@ -152,7 +152,7 @@ const AdminFeeSlipCard = () => {
       <CardHeader>
         <CardTitle className="flex items-center">
           <Building2 className="mr-2 h-5 w-5" />
-          Administrative Office Fee Receipt
+          Administrative Office Fee (₹4500) Receipt
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -191,15 +191,15 @@ const AdminFeeSlipCard = () => {
             <div>
               <h3 className="text-lg font-medium">
                 {status === "not_uploaded" &&
-                  "No Administrative Office Fee Receipt Uploaded"}
+                  "No Administrative Office Fee (₹4500) Receipt Uploaded"}
                 {status === "pending" &&
-                  "Administrative Office Fee Receipt Pending Approval"}
+                  "Administrative Office Fee (₹4500) Receipt Pending Approval"}
                 {status === "approved" &&
-                  "Administrative Office Fee Receipt Approved"}
+                  "Administrative Office Fee (₹4500) Receipt Approved"}
                 {status === "rejected" &&
-                  "Administrative Office Fee Receipt Rejected"}
+                  "Administrative Office Fee (₹4500) Receipt Rejected"}
                 {status === "on_hold" &&
-                  "Administrative Office Fee Receipt On Hold"}
+                  "Administrative Office Fee (₹4500) Receipt On Hold"}
               </h3>
               <p className="text-gray-600 mt-1">
                 {status === "not_uploaded" &&
@@ -288,7 +288,7 @@ const AdminFeeSlipCard = () => {
 
               <div className="border rounded-lg p-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">
-                  Administrative Office Fee Document
+                  Administrative Office Fee (₹4500) Document
                 </h3>
                 {previewUrl ? (
                   <div className="mb-4">
@@ -339,7 +339,9 @@ const AdminFeeSlipCard = () => {
                   className="w-full md:w-auto"
                 >
                   <Upload className="mr-2 h-4 w-4" />
-                  {uploading ? "Uploading..." : "Upload Administrative Office Fee"}
+                  {uploading
+                    ? "Uploading..."
+                    : "Upload Administrative Office Fee (₹4500)"}
                 </Button>
               </div>
             </>

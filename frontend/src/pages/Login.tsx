@@ -27,8 +27,7 @@ const Login = () => {
         </header>
 
         <main className="flex-grow flex flex-col items-center justify-center p-4 sm:p-6">
-          <LoginForm />
-          <p className="mt-4 text-center text-sm text-gray-200">
+          <p className="mb-4 text-center text-sm text-gray-200">
             Login issues? Contact us at{" "}
             <a
               href="mailto:24R21A05HG@mlrit.ac.in"
@@ -37,6 +36,7 @@ const Login = () => {
               24R21A05HG@mlrit.ac.in
             </a>
           </p>
+          <LoginForm />
         </main>
 
         <footer className="py-6 px-4 bg-transparent border-t border-gray-700/50">

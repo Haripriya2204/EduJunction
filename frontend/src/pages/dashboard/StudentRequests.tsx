@@ -663,7 +663,7 @@ Edmit Team
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="main">Main Fee Receipt</SelectItem>
-              <SelectItem value="admin">Administrative Office Fee</SelectItem>
+              <SelectItem value="admin">Administrative Office Fee (₹4500)</SelectItem>
             </SelectContent>
           </Select>
           <Select
