@@ -26,8 +26,17 @@ const Login = () => {
           </div>
         </header>
 
-        <main className="flex-grow flex items-center justify-center p-4 sm:p-6">
+        <main className="flex-grow flex flex-col items-center justify-center p-4 sm:p-6">
           <LoginForm />
+          <p className="mt-4 text-center text-sm text-gray-200">
+            Login issues? Contact us at{" "}
+            <a
+              href="mailto:24R21A05HG@mlrit.ac.in"
+              className="font-medium text-white underline hover:text-gray-300"
+            >
+              24R21A05HG@mlrit.ac.in
+            </a>
+          </p>
         </main>
 
         <footer className="py-6 px-4 bg-transparent border-t border-gray-700/50">
