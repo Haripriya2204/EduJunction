@@ -6,6 +6,7 @@ import { Toaster as Sonner } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AlertCircle } from "lucide-react";
 
 // Pages
 import Home from "./pages/Home";
@@ -34,6 +35,10 @@ import { authService } from "./services/api";
 
 const queryClient = new QueryClient();
 
+// ⚠️ MAINTENANCE MODE CONTROL
+// Set this to true to enable maintenance mode banner
+const MAINTENANCE_MODE = true;
+
 const App = () => {
   // Redirect based on user role
   const DashboardIndex = () => {
@@ -46,43 +51,66 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/features" element={<Features />} />
-            <Route path="/help" element={<Help />} />
-            <Route path="/contact" element={<Contact />} />
+        
+        {/* Maintenance Mode Banner */}
+        {MAINTENANCE_MODE && (
+          <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg">
+            <div className="container mx-auto px-4 py-3">
+              <div className="flex items-center justify-center gap-3 text-center">
+                <AlertCircle className="h-5 w-5 flex-shrink-0 animate-pulse" />
+                <div>
+                  <p className="font-bold text-sm md:text-base">
+                    Website Under Maintenance
+                  </p>
+                  <p className="text-xs md:text-sm opacity-90">
+                    We're making improvements. The site will be back soon. Thank you for your patience.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Add padding when maintenance banner is shown */}
+        <div className={MAINTENANCE_MODE ? "pt-20" : ""}>
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/features" element={<Features />} />
+              <Route path="/help" element={<Help />} />
+              <Route path="/contact" element={<Contact />} />
 
-            {/* Protected dashboard routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<DashboardIndex />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="courses" element={<Courses />} />
-              <Route path="services/feeslip" element={<FeeSlip />} />
-              <Route path="requests" element={<Requests />} />
-              <Route path="support" element={<SupportIssues />} />
+              {/* Protected dashboard routes */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<DashboardIndex />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="courses" element={<Courses />} />
+                <Route path="services/feeslip" element={<FeeSlip />} />
+                <Route path="requests" element={<Requests />} />
+                <Route path="support" element={<SupportIssues />} />
 
-              {/* Admin routes */}
-              <Route path="admin" element={<AdminDashboard />} />
-              <Route path="student-requests" element={<StudentRequests />} />
-              <Route path="events" element={<Events />} />
-              <Route path="fee-reports" element={<FeeReports />} />
-            </Route>
+                {/* Admin routes */}
+                <Route path="admin" element={<AdminDashboard />} />
+                <Route path="student-requests" element={<StudentRequests />} />
+                <Route path="events" element={<Events />} />
+                <Route path="fee-reports" element={<FeeReports />} />
+              </Route>
 
-            {/* Catch-all route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+              {/* Catch-all route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </div>
       </TooltipProvider>
     </QueryClientProvider>
   );
