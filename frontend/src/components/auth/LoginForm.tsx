@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "../../lib/supabase";
+import { MAINTENANCE_MODE } from "../../config/maintenance";
 
 // Flag to temporarily disable student logins
 const STUDENT_LOGINS_DISABLED = false;
@@ -37,6 +38,14 @@ const LoginForm = () => {
   });
 
   const onSubmit = async (data: LoginFormData) => {
+    // Check if maintenance mode is active
+    if (MAINTENANCE_MODE) {
+      toast.error(
+        "Login is currently disabled due to maintenance. Please try again later."
+      );
+      return;
+    }
+
     setIsLoading(true);
     try {
       // First check if this is an admin user
@@ -170,8 +179,8 @@ const LoginForm = () => {
               </p>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Logging in..." : "Log In"}
+            <Button type="submit" className="w-full" disabled={isLoading || MAINTENANCE_MODE}>
+              {MAINTENANCE_MODE ? "Login Disabled - Under Maintenance" : isLoading ? "Logging in..." : "Log In"}
             </Button>
           </form>
         </Form>

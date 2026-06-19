@@ -5,7 +5,7 @@ import { Toaster } from "./components/ui/toaster";
 import { Toaster as Sonner } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AlertCircle } from "lucide-react";
 
 // Pages
@@ -33,11 +33,10 @@ import FeeReports from "./pages/dashboard/FeeReports";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import { authService } from "./services/api";
 
-const queryClient = new QueryClient();
+// Maintenance mode config
+import { MAINTENANCE_MODE } from "./config/maintenance";
 
-// ⚠️ MAINTENANCE MODE CONTROL
-// Set this to true to enable maintenance mode banner
-const MAINTENANCE_MODE = true;
+const queryClient = new QueryClient();
 
 const App = () => {
   // Redirect based on user role
