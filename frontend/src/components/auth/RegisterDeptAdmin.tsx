@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Input } from "../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { useToast } from "../ui/use-toast";
+import { Eye, EyeOff } from "lucide-react";
 
 const DEPARTMENTS = [
   { id: "IT", name: "Information Technology" },
@@ -30,6 +31,7 @@ const RegisterDeptAdmin = ({ onSuccess }: RegisterDeptAdminProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -176,13 +178,23 @@ const RegisterDeptAdmin = ({ onSuccess }: RegisterDeptAdminProps) => {
           
           <div className="space-y-2">
             <label className="text-sm font-medium">Password</label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((p) => !p)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
           
           <Button 

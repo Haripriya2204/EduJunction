@@ -21,6 +21,8 @@ import {
   Edit,
   X,
   Briefcase,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import ProfilePicture from "../../components/profile/ProfilePicture";
 import { adminSupabaseService } from "../../services/adminSupabaseService";
@@ -34,6 +36,8 @@ const Profile = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -175,27 +179,47 @@ const Profile = () => {
                     <label className="block text-sm font-medium mb-1">
                       New Password
                     </label>
-                    <input
-                      type="password"
-                      className="w-full border rounded px-3 py-2"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      autoComplete="new-password"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        className="w-full border rounded px-3 py-2 pr-10"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        autoComplete="new-password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((p) => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        tabIndex={-1}
+                      >
+                        {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Confirm New Password
                     </label>
-                    <input
-                      type="password"
-                      className="w-full border rounded px-3 py-2"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      autoComplete="new-password"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        className="w-full border rounded px-3 py-2 pr-10"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        autoComplete="new-password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((p) => !p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                        tabIndex={-1}
+                      >
+                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" disabled={passwordLoading}>
