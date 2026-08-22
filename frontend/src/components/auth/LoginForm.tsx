@@ -49,15 +49,27 @@ const LoginForm = () => {
 
     setIsLoading(true);
     try {
+      // Trim both fields once, here, so every path below (admin match, the
+      // year gate, student login) compares the same clean value. A mobile
+      // keyboard adding a trailing space to only the visible field made two
+      // identical-looking entries fail the username === password rule, with
+      // the password masked so the student could not see why.
+      //
+      // Case is deliberately NOT folded: roll numbers must be entered in
+      // capitals. Lower case is rejected with an explicit message in
+      // authService.login rather than silently corrected.
+      const username = (data.username || "").trim();
+      const password = (data.password || "").trim();
+
       // First check if this is an admin user
       const { data: adminUser, error: adminError } = await supabase
         .from("users")
         .select("*")
-        .eq("username", data.username)
+        .eq("username", username)
         .eq("role", "admin")
         .single();
 
-      if (adminUser && adminUser.password === data.password) {
+      if (adminUser && adminUser.password === password) {
         // Admin login successful
         localStorage.setItem("currentUser", JSON.stringify(adminUser));
         toast.success(
@@ -79,7 +91,7 @@ const LoginForm = () => {
       // Check if logins for roll numbers starting with "23" or "22" are disabled
       if (
         DISABLE_LOGINS_FOR_22_23 &&
-        (data.username.startsWith("23") || data.username.startsWith("22"))
+        (username.startsWith("23") || username.startsWith("22"))
       ) {
         toast.error(
           "Logins for 2nd and 3rd years are temporarily disabled. Please try again later."
@@ -90,8 +102,8 @@ const LoginForm = () => {
 
       // If not an admin, proceed with regular student login
       const result = await login({
-        rollNo: data.username,
-        password: data.password,
+        rollNo: username,
+        password,
       });
 
       if (!result.success) {
@@ -147,6 +159,10 @@ const LoginForm = () => {
                   <FormControl>
                     <Input
                       placeholder="Enter username or roll number"
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      autoComplete="username"
                       {...field}
                     />
                   </FormControl>
@@ -166,6 +182,10 @@ const LoginForm = () => {
                       <Input
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
+                        autoCapitalize="characters"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        autoComplete="current-password"
                         {...field}
                       />
                       <button
@@ -185,8 +205,8 @@ const LoginForm = () => {
 
             <div className="text-sm text-gray-600">
               <p>
-                Students: Use your roll number for both username and password
-                [Capitals]
+                Students: Use your roll number in CAPITALS for both username
+                and password.
               </p>
             </div>
 

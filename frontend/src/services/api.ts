@@ -34,6 +34,21 @@ connectToDatabase();
 export const authService = {
   login: async (username: string, password: string) => {
     try {
+      // Roll numbers are stored with no padding and the lookup below is an
+      // exact match, so trim before comparing anything. Without this, a phone
+      // keyboard appending a space to one field fails against a perfectly
+      // good row.
+      username = (username || "").trim();
+      password = (password || "").trim();
+
+      // Capitals are required, by policy - we do not silently upper-case the
+      // input. Say so plainly instead of letting it fall through to the
+      // exact-match lookup and surface as "Invalid roll number", which sends
+      // the student looking for a problem with their record.
+      if (username !== username.toUpperCase() || password !== password.toUpperCase()) {
+        throw new Error("Please enter your roll number in CAPITALS");
+      }
+
       // Require username and password to be identical (roll-number rule).
       // Previously the string "admin" was exempt, which inadvertently
       // allowed anyone to login as an admin by typing "admin" twice.
