@@ -128,6 +128,10 @@ const FeeSlip = () => {
       if (error) throw error;
       toast.success("Mobile number saved successfully");
       setMobileSaved(true);
+      localStorage.setItem(
+        "currentUser",
+        JSON.stringify({ ...currentUser, mobile_number: mobileNumber })
+      );
     } catch (error) {
       toast.error("Failed to save mobile number");
     } finally {
