@@ -4,9 +4,13 @@ import { authService as apiAuthService } from './api';
 // Check if a student is detained - synchronous check
 export const isDetained = (rollNo: string): boolean => {
   console.log('Checking detained status for roll number:', rollNo);
-  const detainedList = DETAINED_STUDENTS.split(',');
+  // Compared case-insensitively on purpose: this is a block, so it must not
+  // be escapable by typing the roll number in lower case. (Login itself does
+  // require capitals - that is a separate rule, enforced in authService.)
+  const normalised = (rollNo || '').trim().toUpperCase();
+  const detainedList = DETAINED_STUDENTS.split(',').map((r) => r.trim().toUpperCase());
   console.log('Detained list:', detainedList);
-  const isDetained = detainedList.includes(rollNo.trim());
+  const isDetained = detainedList.includes(normalised);
   console.log('Is detained:', isDetained);
   return isDetained;
 };
