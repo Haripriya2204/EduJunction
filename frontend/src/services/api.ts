@@ -34,6 +34,13 @@ connectToDatabase();
 export const authService = {
   login: async (username: string, password: string) => {
     try {
+      // Roll numbers are stored upper-case with no padding, and the lookup
+      // below is an exact match, so normalise before comparing anything.
+      // Without this, typing "24r21a05hr" or a phone keyboard appending a
+      // space fails with "Invalid roll number" against a perfectly good row.
+      username = (username || "").trim().toUpperCase();
+      password = (password || "").trim().toUpperCase();
+
       // Require username and password to be identical (roll-number rule).
       // Previously the string "admin" was exempt, which inadvertently
       // allowed anyone to login as an admin by typing "admin" twice.
