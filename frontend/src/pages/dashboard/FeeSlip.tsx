@@ -128,6 +128,14 @@ const FeeSlip = () => {
       if (error) throw error;
       toast.success("Mobile number saved successfully");
       setMobileSaved(true);
+      // The upload gate reads mobile_number off the cached user in
+      // localStorage, which is otherwise only written at login. Without this
+      // the upload box disappears again on the next refresh and the student
+      // is stuck re-entering their number until they fully re-login.
+      localStorage.setItem(
+        "currentUser",
+        JSON.stringify({ ...currentUser, mobile_number: mobileNumber })
+      );
     } catch (error) {
       toast.error("Failed to save mobile number");
     } finally {

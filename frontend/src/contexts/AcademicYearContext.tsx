@@ -1,7 +1,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useState,
   ReactNode,
 } from "react";
@@ -9,8 +8,6 @@ import {
   CURRENT_ACADEMIC_YEAR,
   SELECTABLE_ACADEMIC_YEARS,
 } from "../lib/academicYear";
-
-const STORAGE_KEY = "selectedAcademicYear";
 
 interface AcademicYearContextValue {
   academicYear: string;
@@ -22,20 +19,14 @@ const AcademicYearContext = createContext<AcademicYearContextValue | undefined>(
   undefined
 );
 
-const getInitialYear = (): string => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored && SELECTABLE_ACADEMIC_YEARS.includes(stored)) {
-    return stored;
-  }
-  return CURRENT_ACADEMIC_YEAR;
-};
-
 export const AcademicYearProvider = ({ children }: { children: ReactNode }) => {
-  const [academicYear, setAcademicYearState] = useState<string>(getInitialYear);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, academicYear);
-  }, [academicYear]);
+  // Deliberately not persisted. It used to live in localStorage, which
+  // outlived logout: a student who once looked at a past year stayed pinned
+  // to it and saw that year's approved receipt instead of being asked to
+  // upload for the current one -- and on a shared machine the stale year
+  // carried over to the next student to log in.
+  const [academicYear, setAcademicYearState] =
+    useState<string>(CURRENT_ACADEMIC_YEAR);
 
   const setAcademicYear = (year: string) => {
     if (SELECTABLE_ACADEMIC_YEARS.includes(year)) {
