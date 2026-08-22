@@ -4,12 +4,9 @@ import { authService as apiAuthService } from './api';
 // Check if a student is detained - synchronous check
 export const isDetained = (rollNo: string): boolean => {
   console.log('Checking detained status for roll number:', rollNo);
-  // Normalise the same way authService.login does. Comparing raw input here
-  // would let a detained student through by simply typing their roll number
-  // in lower case, since the list is stored upper-case.
-  const normalised = (rollNo || '').trim().toUpperCase();
-  const detainedList = DETAINED_STUDENTS.split(',').map((r) => r.trim().toUpperCase());
-  const isDetained = detainedList.includes(normalised);
+  const detainedList = DETAINED_STUDENTS.split(',');
+  console.log('Detained list:', detainedList);
+  const isDetained = detainedList.includes(rollNo.trim());
   console.log('Is detained:', isDetained);
   return isDetained;
 };
